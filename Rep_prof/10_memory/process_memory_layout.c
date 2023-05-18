@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "segment_item.h"
+#include "segment_item.c"
 #include "process_memory_layout.h"
 #include "string.h"
 

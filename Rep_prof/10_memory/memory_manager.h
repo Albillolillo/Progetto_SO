@@ -1,8 +1,8 @@
 #pragma once
 #include <assert.h>
 #include <stdio.h>
-#include "process_memory_layout.h"
-#include "linked_list.h"
+#include "process_memory_layout.c"
+#include "linked_list.c"
 
 typedef struct GlobalMemoryLayout{
   int frame_to_pid[PAGES_NUM];

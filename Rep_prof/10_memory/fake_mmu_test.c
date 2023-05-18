@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "fake_mmu.h"
+#include "fake_mmu.c"
 
 int main(int  argc, char** argv){
   printf("ADDRESS_NBITS: %d, size: %d\n", ADDRESS_NBITS, MAX_MEMORY);
