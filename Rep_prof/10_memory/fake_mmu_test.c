@@ -53,7 +53,7 @@ int main(int  argc, char** argv){
 	   segments[s].base,
 	   segments[s].limit);
 	   
-           
+         
     for (uint32_t p=0; p<segments[s].limit; ++p){
       LogicalAddress logical_address;
       logical_address.segment_id=s;
