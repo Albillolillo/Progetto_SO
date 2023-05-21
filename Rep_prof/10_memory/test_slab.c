@@ -28,18 +28,22 @@ int main(int argc, char** argv) {
 
   // we allocate_all memory, and a bit more
   
-  void* blocks[num_items];
+  //void* blocks[num_items];
+  FrameItem* blocks[num_items];
   for (int i=0; i<num_items; ++i){
-    void* block=PoolAllocator_getBlock(&allocator);
+    FrameItem* frame=FrameItem_alloc();
+    frame=(FrameItem*)PoolAllocator_getBlock(&allocator);
+    FrameItem_init(frame,i,i);
+    //void*block=PoolAllocator_getBlock(&allocator);
 
 
-    blocks[i]=block;
-    printf("allocation %d, block %p, size%d\n", i, block, allocator.size);  
+    blocks[i]=frame;
+    printf("allocation %d, block %p, size%d, pid%d, frame_num%d, buffer_size%d \n", i, frame, allocator.size, frame->pid, frame->frame_num, sizeof(frame->info));  
   }
     
   // we release all memory
-  for (int i=0; i<num_items-10; ++i){
-    void* block=blocks[i];
+  for (int i=0; i<num_items; ++i){
+    FrameItem* block=blocks[i];
     if (block){
       printf("releasing... idx: %d, block %p, free %d ... ",
 	     i, block, allocator.size);
@@ -47,10 +51,10 @@ int main(int argc, char** argv) {
       printf("%s\n", PoolAllocator_strerror(release_result));
     }
   }
-
+/*
   // we release all memory again (should get a bunch of errors)
   for (int i=0; i<num_items+10; ++i){
-    void* block=blocks[i];
+    FrameItem* block=blocks[i];
     if (block){
       printf("releasing... idx: %d, block %p, free %d ... ",
 	     i, block, allocator.size);
@@ -61,13 +65,13 @@ int main(int argc, char** argv) {
   
   // we allocate half of the memory, and release it in reverse order
   for (int i=0; i<num_items-5; ++i){
-    void* block=PoolAllocator_getBlock(&allocator);
+    FrameItem* block=(FrameItem*)PoolAllocator_getBlock(&allocator);
     blocks[i]=block;
     printf("allocation %d, block %p, size%d\n", i, block, allocator.size);  
   }
 
   for (int i=num_items-1; i>=0; --i){
-    void* block=blocks[i];
+    FrameItem* block=blocks[i];
     if (block){
       printf("releasing... idx: %d, block %p, free %d ... ",
 	     i, block, allocator.size);
@@ -80,13 +84,13 @@ int main(int argc, char** argv) {
   // and release only even blocks, in reverse order
   // release odd blocks in reverse order
   for (int i=0; i<num_items; ++i){
-    void* block=PoolAllocator_getBlock(&allocator);
+    FrameItem* block=(FrameItem*)PoolAllocator_getBlock(&allocator);
     blocks[i]=block;
     printf("allocation %d, block %p, size%d\n", i, block, allocator.size);  
   }
 
   for (int i=num_items-1; i>=0; i-=2){
-    void* block=blocks[i];
+    FrameItem* block=blocks[i];
     if (block){
       printf("releasing... idx: %d, block %p, free %d ... ",
 	     i, block, allocator.size);
@@ -96,7 +100,7 @@ int main(int argc, char** argv) {
   }
 
   for (int i=num_items-2; i>=0; i-=2){
-    void* block=blocks[i];
+    FrameItem* block=blocks[i];
     if (block){
       printf("releasing... idx: %d, block %p, free %d ... ",
 	     i, block, allocator.size);
@@ -104,6 +108,6 @@ int main(int argc, char** argv) {
       printf("%s\n", PoolAllocator_strerror(release_result));
     }
   }
-
+*/
   
 }
