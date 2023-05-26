@@ -1,13 +1,5 @@
-// bits used for addressing
-#define ADDRESS_NBITS 24
-
-// number of bits used as segment descriptor
-#define SEGMENT_NBITS 4
-
-// number of bits for a page selector
-#define PAGE_NBITS 14
-
-
+/*
+#include "linked_list.h"
 
 //**Costants**
 
@@ -21,11 +13,32 @@
 #define PT_ENTRY_BITS (PT_FLAGSBITS+FRAME_INDEX_BITS) //bits entry della page table è la concatenazione di flags e frame index
 
 #define PHYADDR_BITS (FRAME_INDEX_BITS+FRAME_OFFSET_BITS) //bits indirizzo fisico è la concatenazione di frame index e frame offset
+
+#define SWAP_INDEX_BITS 12 //bits indice della swapmem
+#define SWAPADDR_BITS (SWAP_INDEX_BITS+FRAME_OFFSET_BITS)//bits indirizzo swap è la concatenazione di swap index e frame offset
+
+
 //MEM_SIZE
 #define PENTRY_NUM (1<<(PT_INDEX_BITS)) //numero entry page table 
 #define PAGE_NUM (1<<FRAME_INDEX_BITS)//numero frame nella memoria fisica
 
 #define PHYMEM_MAX_SIZE (1<<(PHYADDR_BITS)) //dimensine massima memoria fisica (1MB)
 #define LOGMEM_MAX_SIZE (1<<(LOGADDR_BITS)) //dimensine massima memoria virtuale (16MB)
-#define SWAPMEM_MAX_SIZE (1<<24) //dimensine massima memoria virtuale (16MB)
+#define SWAPMEM_MAX_SIZE (1<<(SWAPADDR_BITS)) //dimensine massima memoria virtuale (16MB)
 
+#define FRAME_INFO_SIZE ((1<<FRAME_OFFSET_BITS)-sizeof(ListItem)-(2*sizeof(int)))
+// object size=4K
+# define ITEM_SIZE sizeof(FrameItem)
+
+// 256 blocks
+#define num_items_phymem (1<<(FRAME_INDEX_BITS))
+#define num_items_swapmem (1<<(SWAP_INDEX_BITS))
+
+// buffer should contain also bookkeeping information
+#define buffer_size_phymem num_items_phymem*(item_size+sizeof(int))
+#define buffer_size_swapmem num_items_swapmem*(item_size+sizeof(int))
+
+//numero massimo processi
+#define MAX_NUM_PROCS 10
+
+spostati dentro my_mmu.h*/

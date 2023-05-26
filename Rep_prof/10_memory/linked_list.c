@@ -7,9 +7,9 @@ void List_init(ListHead* head) {
   head->size=0;
 }
 
-ListItem* List_find(ListHead* head, ListItem* item) {
+ListItem* List_find(ListHead* head, Process* item) {
   // linear scanning of list
-  ListItem* aux=head->first;
+  Process* aux=head->first;
   while(aux){
     if (aux==item)
       return item;
@@ -18,25 +18,11 @@ ListItem* List_find(ListHead* head, ListItem* item) {
   return 0;
 }
 
-ListItem* List_insert(ListHead* head, ListItem* prev, ListItem* item) {
+ListItem* List_insert(ListHead* head, Process* prev, Process* item) {
   if (item->next || item->prev)
     return 0;
-  
-#ifdef _LIST_DEBUG_
-  // we check that the element is not in the list
-  ListItem* instance=List_find(head, item);
-  assert(!instance);
 
-  // we check that the previous is inthe list
-
-  if (prev) {
-    ListItem* prev_instance=List_find(head, prev);
-    assert(prev_instance);
-  }
-  // we check that the previous is inthe list
-#endif
-
-  ListItem* next= prev ? prev->next : head->first;
+  Process* next= prev ? prev->next : head->first;
   if (prev) {
     item->prev=prev;
     prev->next=item;
@@ -53,16 +39,10 @@ ListItem* List_insert(ListHead* head, ListItem* prev, ListItem* item) {
   return item;
 }
 
-ListItem* List_detach(ListHead* head, ListItem* item) {
+ListItem* List_detach(ListHead* head, Process* item) {
 
-#ifdef _LIST_DEBUG_
-  // we check that the element is in the list
-  ListItem* instance=List_find(head, item);
-  assert(instance);
-#endif
-
-  ListItem* prev=item->prev;
-  ListItem* next=item->next;
+  Process* prev=item->prev;
+  Process* next=item->next;
   if (prev){
     prev->next=next;
   }
@@ -76,4 +56,11 @@ ListItem* List_detach(ListHead* head, ListItem* item) {
   head->size--;
   item->next=item->prev=0;
   return item;
+}
+void List_print(ListHead* head){
+    Process* aux=head->first;
+  while(aux){
+      Process_print(aux);
+      aux=aux->next;
+  }
 }

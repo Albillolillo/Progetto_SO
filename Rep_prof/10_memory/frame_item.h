@@ -1,10 +1,9 @@
-#pragma once
+/*#pragma once
 #include <assert.h>
 #include <stdio.h>
-#include "fake_mmu.h"
+#include "my_mmu.h"
 #include "linked_list.h"
-
-#define FRAME_INFO_SIZE ((1<<FRAME_OFFSET_BITS)-sizeof(ListItem)-(2*sizeof(int)))
+#include "constants_real.h"
 
 //this is a record of the pages list. It holds the infos in the frame and the pid for a process
 typedef struct FrameItem{
@@ -20,3 +19,4 @@ int FrameItem_free(FrameItem* item);
 void FrameItem_init(FrameItem* item, int pid, uint32_t frame_num);
 void FrameItem_print(FrameItem* item);
 void FrameList_print(ListHead* list);
+*/

@@ -1,6 +1,7 @@
+/*
 #include <stdlib.h>
 #include <stdio.h>
-#include "frame_item.h"
+#include "constants_real.h"
 
 FrameItem* FrameItem_alloc() {
   return (FrameItem*) malloc (sizeof(FrameItem));
@@ -12,12 +13,12 @@ int FrameItem_free(FrameItem* item) {
 }
 
 void FrameItem_init(FrameItem* item, int pid, uint32_t frame_num){
+  for(int i=0;i<FRAME_INFO_SIZE;i++){
+    item->info[i]=0;
+  }  
   item->list.prev=item->list.next=0;
   item->pid=pid;
   item->frame_num=frame_num;
-  for(int i=0;i<FRAME_INFO_SIZE;i++){
-    item->info[i]=0;
-  }
 }
 
 void FrameItem_print(FrameItem* item){
@@ -34,3 +35,4 @@ void FrameList_print(ListHead* list) {
   }
   
 }
+*/

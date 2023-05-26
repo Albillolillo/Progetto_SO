@@ -1,17 +1,14 @@
 #pragma once
 
-typedef struct ListItem {
-  struct ListItem* prev;
-  struct ListItem* next;
-} ListItem;
 
-typedef struct ListHead {
-  ListItem* first;
-  ListItem* last;
+
+typedef struct ListProcessHead {
+  Process* first;
+  Process* last;
   int size;
-} ListHead;
+} ListProcessHead;
 
-void List_init(ListHead* head);
-ListItem* List_find(ListHead* head, ListItem* item);
-ListItem* List_insert(ListHead* head, ListItem* previous, ListItem* item);
-ListItem* List_detach(ListHead* head, ListItem* item);
+void List_init(ListProcessHead* head);
+Process* List_find(ListProcessHead* head, Process* item);
+Process* List_insert(ListProcessHead* head, Process* previous, Process* item);
+Process* List_detach(ListProcessHead* head, Process* item);
