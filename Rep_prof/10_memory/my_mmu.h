@@ -34,12 +34,12 @@
 # define ITEM_SIZE sizeof(FrameItem)
 
 // 256 blocks
-#define num_items_phymem (1<<(FRAME_INDEX_BITS))
-#define num_items_swapmem (1<<(SWAP_INDEX_BITS))
+#define NUM_ITEMS_PHYMEM (1<<(FRAME_INDEX_BITS))
+#define NUM_ITEMS_SWAPMEM (1<<(SWAP_INDEX_BITS))
 
 // buffer should contain also bookkeeping information
-#define buffer_size_phymem num_items_phymem*(ITEM_SIZE+sizeof(int))
-#define buffer_size_swapmem num_items_swapmem*(ITEM_SIZE+sizeof(int))
+#define BUFFER_SIZE_PHYMEM NUM_ITEMS_PHYMEM*(ITEM_SIZE+sizeof(int))
+#define BUFFER_SIZE_SWAPMEM NUM_ITEMS_SWAPMEM*(ITEM_SIZE+sizeof(int))
 
 //numero massimo processi
 #define MAX_NUM_PROCS 10
@@ -102,23 +102,13 @@ typedef enum {
 
 
 //struct processo
-struct Process{
+typedef struct Process{
     struct Process* next;
     struct Process* prev;
     int pid;
     PageTable pt;
     bool on_disk; //false phy mem ,true swap mem
-};
-typedef struct Process Process;
-
-
-//struct memory management unit
-typedef struct MMU {
-    PoolAllocator phymem_allocator;
-    PoolAllocator swapmem_allocator;
-    Process curr_proc;
-} MMU;
-
+} Process;
 
 
 //struct list
@@ -128,6 +118,18 @@ typedef struct ListProcessHead {
   int size;
 } ListProcessHead;
 
+//struct memory management unit
+typedef struct MMU {
+    PoolAllocator* phymem_allocator;
+    PoolAllocator* swapmem_allocator;
+    ListProcessHead* MMU_processes;
+    Process* curr_proc;
+} MMU;
+
+
+
+
+
 
 
 
@@ -135,8 +137,8 @@ typedef struct ListProcessHead {
 
 //fnct su MMU
 
-//inizzializza MMU
-MMU* MMU_init(PoolAllocator phymem_allocator,PoolAllocator swapmem_allocator);
+//alloca e inizzializza MMU
+MMU* MMU_create(PoolAllocator* phymem_allocator,PoolAllocator* swapmem_allocator,Process* curr, ListProcessHead* processes);
 //dato indirizzo logico ritorna inirizzo fisico
 PhysicalAddress getPhysicalAddress(MMU* mmu, LogicalAddress logical_address);
 //scrive byte a indirizzo logico specificato
@@ -145,6 +147,8 @@ void MMU_writeByte(MMU* mmu,LogicalAddress pos, char c);
 char* MMU_readByte(MMU* mmu,LogicalAddress pos);
 //lancia exception se indirizzo richiesto non è valido 
 void MMU_exception(MMU* mmu, int pos);
+//stampa MMU
+void MMU_print(MMU* mmu);
 
 
 
@@ -186,7 +190,9 @@ void PageTable_print();
 
 
 //fnct per list
+//
 void List_init(ListProcessHead* head);
 Process* List_find(ListProcessHead* head, Process* item);
 Process* List_insert(ListProcessHead* head, Process* previous, Process* item);
 Process* List_detach(ListProcessHead* head, Process* item);
+void List_print(ListProcessHead* head);

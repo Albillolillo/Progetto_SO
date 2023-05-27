@@ -20,8 +20,9 @@ typedef struct PoolAllocator{
   int item_size;       //size of a block
   
   int first_idx;       //pointer to the first bucket
-  int bucket_size;     // size of a bucket
 } PoolAllocator;
+
+PoolAllocator* PoolAllocator_alloc();
 
 PoolAllocatorResult PoolAllocator_init(PoolAllocator* allocator,
 			int item_size,
@@ -34,3 +35,5 @@ void* PoolAllocator_getBlock(PoolAllocator* allocator);
 PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* allocator, void* block);
 			
 const char* PoolAllocator_strerror(PoolAllocatorResult result);
+
+void PoolAllocator_PrintInfo(PoolAllocator* a);

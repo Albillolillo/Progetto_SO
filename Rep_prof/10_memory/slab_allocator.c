@@ -17,6 +17,11 @@ const char* PoolAllocator_strerror(PoolAllocatorResult result) {
   return PoolAllocator_strerrors[-result];
 }
 
+
+PoolAllocator* PoolAllocator_alloc(){
+  return (PoolAllocator*)malloc(sizeof(PoolAllocator));
+}
+
 PoolAllocatorResult PoolAllocator_init(PoolAllocator* a,
 		       int item_size,
 		       int num_items,
@@ -89,4 +94,9 @@ PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* a, void* block_){
   a->first_idx=idx;
   ++a->size;
   return Success;
+}
+
+void PoolAllocator_PrintInfo(PoolAllocator* a){
+  printf("item_size:%d\n num_free_block:%d\n buf_addr:%p\n buffer_size(Bytes):%d\n free_list addr:%p\n max_size:%d\n first_bucket_idx:%d\n ",
+          a->item_size,a->size,a->buffer,a->buffer_size,a->free_list,a->size_max,a->first_idx);
 }

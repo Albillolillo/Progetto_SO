@@ -2,9 +2,16 @@
 #include <stdlib.h>
 #include "my_mmu.h"
 
+//fnct MMU
 
-
-MMU* MMU_init(PoolAllocator phymem_allocator,PoolAllocator swapmem_allocator){};
+MMU* MMU_create(PoolAllocator* phymem_allocator,PoolAllocator* swapmem_allocator,Process* curr,ListProcessHead* processes){
+  MMU* mmu=(MMU*)malloc(sizeof(MMU));
+  mmu->phymem_allocator=phymem_allocator;
+  mmu->swapmem_allocator=swapmem_allocator;
+  mmu->MMU_processes=processes;
+  mmu->curr_proc=curr;
+  return mmu;
+};
 //dato indirizzo logico ritorna inirizzo fisico
 PhysicalAddress getPhysicalAddress(MMU* mmu, LogicalAddress logical_address){};
 //scrive byte a indirizzo logico specificato
@@ -13,6 +20,14 @@ void MMU_writeByte(MMU* mmu,LogicalAddress pos, char c){};
 char* MMU_readByte(MMU* mmu,LogicalAddress pos){};
 //lancia exception se indirizzo richiesto non è valido 
 void MMU_exception(MMU* mmu, int pos){};
+//stampa MMU
+void MMU_print(MMU* mmu){
+  printf("phy_allocator:%p\nswap_allocator:%p\nLista processi:\n",mmu->phymem_allocator,mmu->swapmem_allocator);
+  List_print(mmu->MMU_processes);
+  printf("Processo corrente:\n");
+  Process_print(mmu->curr_proc);
+};
+
 
 
 
@@ -43,9 +58,8 @@ void Process_print(Process* item){
 
 //fnct PageTable
 
-//inizzializza PageTable
 PageTable PageTable_init(){};
-//stampa PageTable
+
 void PageTable_print(){};
 
 FrameItem* FrameItem_alloc() {
@@ -125,7 +139,6 @@ Process* List_insert(ListProcessHead* head, Process* prev, Process* item) {
 }
 
 Process* List_detach(ListProcessHead* head, Process* item) {
-
   Process* prev=item->prev;
   Process* next=item->next;
   if (prev){
@@ -142,6 +155,7 @@ Process* List_detach(ListProcessHead* head, Process* item) {
   item->next=item->prev=0;
   return item;
 }
+
 void List_print(ListProcessHead* head){
     Process* aux=head->first;
   while(aux){
