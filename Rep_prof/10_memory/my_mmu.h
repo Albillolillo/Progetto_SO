@@ -23,7 +23,7 @@
 
 //MEM_SIZE
 #define PENTRY_NUM (1<<(PT_INDEX_BITS)) //numero entry page table 
-#define PAGE_NUM (1<<FRAME_INDEX_BITS)//numero frame nella memoria fisica
+#define FRAME_NUM (1<<FRAME_INDEX_BITS)//numero frame nella memoria fisica
 
 #define PHYMEM_MAX_SIZE (1<<(PHYADDR_BITS)) //dimensine massima memoria fisica (1MB)
 #define LOGMEM_MAX_SIZE (1<<(LOGADDR_BITS)) //dimensine massima memoria virtuale (16MB)
@@ -50,20 +50,20 @@
 
 //indirizzo logico
 typedef struct LogicalAddress{
-    uint16_t pt_index: PT_INDEX_BITS;
     uint16_t offset: FRAME_OFFSET_BITS;
+    uint16_t pt_index: PT_INDEX_BITS;
 } LogicalAddress;
 
 //indirizzo fisico
 typedef struct PhysicalAddress{
-    uint8_t frame_index: FRAME_INDEX_BITS;
     uint16_t offset: FRAME_OFFSET_BITS;
+    uint8_t frame_index: FRAME_INDEX_BITS;
 } PhysicalAddress;
 
 //indirizzo swapmem
 typedef struct SwapAddress{
-    uint16_t swap_index: SWAP_INDEX_BITS;
     uint16_t offset: FRAME_OFFSET_BITS;
+    uint16_t swap_index: SWAP_INDEX_BITS;
 } SwapAddress;
 
 
@@ -86,6 +86,8 @@ typedef struct PageEntry {
 
 //struct PageTable
 typedef struct PageTable {
+    int pid;
+    int frame_num;
     PhysicalAddress phymem_addr;
     SwapAddress swapmem_addr;
     PageEntry pe[PENTRY_NUM];
@@ -106,9 +108,10 @@ typedef struct Process{
     struct Process* next;
     struct Process* prev;
     int pid;
-    PageTable pt;
+    PageTable* pt;
     bool on_disk; //false phy mem ,true swap mem
 } Process;
+
 
 
 //struct list
@@ -175,14 +178,10 @@ void MMU_print(MMU* mmu);
 
 //fnct su FrameItem
 
-//alloca mem per frame
-FrameItem* FrameItem_alloc();
-//libera frame
-int FrameItem_free(FrameItem* item);
 //inizializza frame
-void FrameItem_init(FrameItem* item, int pid, uint32_t frame_num);
+void FrameEntry_init(FrameItem* item, int pid, uint32_t frame_num);
 //stampa un frame
-void FrameItem_print(FrameItem* item);
+void FrameEntry_print(FrameItem* item);
 
 
 
@@ -203,9 +202,9 @@ void Process_print(Process* item);
 //fnct PageTable
 
 //inizzializza PageTable
-PageTable PageTable_init();
+void PageTable_init(PageTable* pt,MMU* mmu,int pid,int frame_num);
 //stampa PageTable
-void PageTable_print();
+void PageTable_print(PageTable* pt);
 
 
 
@@ -216,6 +215,7 @@ Process* List_find(ListProcessHead* head, Process* item);
 Process* List_insert(ListProcessHead* head, Process* previous, Process* item);
 Process* List_detach(ListProcessHead* head, Process* item);
 void List_print(ListProcessHead* head);
+int List_free(ListProcessHead* head);
 
 
 

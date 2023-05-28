@@ -52,8 +52,13 @@ void MMU_print(MMU* mmu){
 Process* Process_alloc(){
   return (Process*)malloc(sizeof(Process));
 };
-//libera processo
-int Process_free(Process* item){};
+//libera processo *****non funziona*****
+int Process_free(Process* item){
+  item->next=NULL;
+  item->prev=NULL;
+  free(item);
+  return 0;
+};
 //inizializza processo
 void Process_init(Process* item, int pid){
   item->pid=pid;
@@ -65,31 +70,36 @@ void Process_init(Process* item, int pid){
 //stampa un processo
 void Process_print(Process* item){
     printf("processo:%p con pid:%d, successore:%p,predecessore:%p\n",item,item->pid,item->next,item->prev);
-}
+};
 
 
 
 //fnct PageTable
 
-PageTable PageTable_init(){};
+void PageTable_init(PageTable* pt ,MMU* mmu,int pid,int frame_num){
+  pt->pid=pid;
+  pt->frame_num=frame_num;
+  pt->phymem_addr.frame_index=frame_num;
+  pt->phymem_addr.offset=0;
+  for(int i=0;i<PENTRY_NUM;i++){
+    pt->pe[i].flags=0;
+    pt->pe[i].frame_number=i%FRAME_NUM;
+  }
 
-void PageTable_print(){};
+};
+
+void PageTable_print(PageTable* pt ){
+  printf("\npid:%d, frame_num:%d, phymem_addr:%d\n",pt->pid,pt->frame_num,pt->phymem_addr);
+  for(int i=0;i<PENTRY_NUM;i++){
+    printf("PageEntry_num:%d -> %d",i,pt->pe[i]);
+    if(i>300)break;
+  }
+};
 
 
 //fnct FrameItem
 
-//***cancellare*** 
-FrameItem* FrameItem_alloc() {
-  return (FrameItem*) malloc (sizeof(FrameItem));
-}
-
-//***cancellare***
-int FrameItem_free(FrameItem* item) {
-  free(item);
-  return 0;
-}
-
-void FrameItem_init(FrameItem* item, int pid, uint32_t frame_num){
+void FrameEntry_init(FrameItem* item, int pid, uint32_t frame_num){
   for(int i=0;i<FRAME_INFO_SIZE;i++){
     item->info[i]=0;
   }  
@@ -98,7 +108,7 @@ void FrameItem_init(FrameItem* item, int pid, uint32_t frame_num){
   item->frame_num=frame_num;
 }
 
-void FrameItem_print(FrameItem* item){
+void FrameEntry_print(FrameItem* item){
   printf("pid: %d, frame: %d, info: ", item->pid, item->frame_num);
   for(int i=0;i<sizeof(item->info);i++){
     printf("%c",item->info[i]);
@@ -167,14 +177,20 @@ Process* List_detach(ListProcessHead* head, Process* item) {
 }
 
 void List_print(ListProcessHead* head){
-    Process* aux=head->first;
+  Process* aux=head->first;
   while(aux){
       Process_print(aux);
       aux=aux->next;
   }
 }
 
-
+int List_free(ListProcessHead* head){
+  Process* aux=head->first;
+  while(aux){
+    Process_free(aux);
+  }
+  return 0;
+}
 
 //fnct SLAB
 
@@ -253,7 +269,7 @@ if(!which){
 PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* a, FrameItem* block_){
   //pulisco contenuto blocco
   if (block_){
-    FrameItem_init(block_,0, block_->frame_num);
+    FrameEntry_init(block_,0, block_->frame_num);
   }
   //we need to find the index from the address
   char* block=(char*) block_;
