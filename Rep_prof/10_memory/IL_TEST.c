@@ -5,10 +5,11 @@
 
 PoolAllocator* phy_allocator; //allocatore per mem. fisica
 char buffer_phymem[BUFFER_SIZE_PHYMEM]; //mem. fisica
+FrameItem* phy_blocks[NUM_ITEMS_PHYMEM];//lista blocchi di mem. fisica allocati
 
 PoolAllocator* swap_allocator; //allocatore per mem. swap
 char buffer_swapmem[BUFFER_SIZE_SWAPMEM]; //mem. swap
-
+FrameItem* swap_blocks[NUM_ITEMS_SWAPMEM]; //lista blocchi di mem. swap allocati
 
 
 ListProcessHead* processes; //lista processi
@@ -41,10 +42,56 @@ int main(int argc, char** argv) {
     printf("%s\n",PoolAllocator_strerror(ret));
     PoolAllocator_PrintInfo(swap_allocator);
 
+    
     //inizializzo MMU
     printf("\nInizzializzo MMU\n");
     MMU* mmu=MMU_create(phy_allocator,swap_allocator,current,processes);
     MMU_print(mmu);
 
+    //test allocatori
 
+    //alloco e libero tutto 
+    for (int i=0; i<NUM_ITEMS_PHYMEM; ++i){
+        int frame_num=phy_allocator->first_idx;
+        FrameItem* frame=(FrameItem*)PoolAllocator_getBlock(phy_allocator,false);
+        phy_blocks[i]=frame;
+        FrameItem_init(frame,current->pid,frame_num);
+        printf("allocation %d, block %p, size%d, pid%d, frame_num%d, buffer_size%d \n", i, frame, phy_allocator->size, frame->pid, frame->frame_num, sizeof(frame->info));  
+    }
+
+    for (int i=0; i<NUM_ITEMS_PHYMEM; ++i){
+        FrameItem_print(phy_blocks[i]);
+    }
+
+
+     for (int i=0; i<NUM_ITEMS_PHYMEM; ++i){
+    if (phy_blocks[i]){
+      printf("releasing... idx: %d, block %p, free %d, owner:%d ... ",
+	     i, phy_blocks[i], phy_allocator->size,phy_blocks[i]->pid);
+      PoolAllocatorResult release_result=PoolAllocator_releaseBlock(phy_allocator,phy_blocks[i]);
+      printf("%s\n", PoolAllocator_strerror(release_result));
+    }
+    }
+
+    for (int i=0; i<NUM_ITEMS_PHYMEM; ++i){
+        FrameItem_print(phy_blocks[i]);
+    }
+    //alloco 1 libero 1
+    for (int i=0; i<NUM_ITEMS_PHYMEM; ++i){
+        int frame_num=phy_allocator->first_idx;
+        FrameItem* frame=(FrameItem*)PoolAllocator_getBlock(phy_allocator,false);
+        phy_blocks[i]=frame;
+        FrameItem_init(frame,current->pid,frame_num);
+        printf("allocation %d, block %p, size%d, pid%d, frame_num%d, buffer_size%d \n", i, frame, phy_allocator->size, frame->pid, frame->frame_num, sizeof(frame->info));
+        FrameItem_print(phy_blocks[i]);
+        printf("releasing... idx: %d, block %p, free %d, owner:%d ... ",
+	     i,phy_blocks[i], phy_allocator->size,phy_blocks[i]->pid);
+      PoolAllocatorResult release_result=PoolAllocator_releaseBlock(phy_allocator,phy_blocks[i]);
+      printf("%s\n", PoolAllocator_strerror(release_result));  
+      FrameItem_print(phy_blocks[i]);
+    }
+
+
+
+   
 }

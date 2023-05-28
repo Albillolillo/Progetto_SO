@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "slab_allocator.c"
+
 
 //************Costants************
 
@@ -118,6 +118,29 @@ typedef struct ListProcessHead {
   int size;
 } ListProcessHead;
 
+//structs per SLAB
+typedef enum {
+  Success=0x0,
+  NotEnoughMemory=-1,
+  UnalignedFree=-2,
+  OutOfRange=-3,
+  DoubleFree=-4
+} PoolAllocatorResult;
+
+typedef struct PoolAllocator{
+  
+  char* buffer;        //contiguous buffer managed by the system
+  int*  free_list;     //list of linked objects
+  int buffer_size;     //size of the buffer in bytes
+
+  int size;            //number of free blocks
+  int size_max;        //maximum number of blocks
+  int item_size;       //size of a block
+  
+  int first_idx;       //pointer to the first bucket
+} PoolAllocator;
+
+
 //struct memory management unit
 typedef struct MMU {
     PoolAllocator* phymem_allocator;
@@ -150,8 +173,6 @@ void MMU_exception(MMU* mmu, int pos);
 //stampa MMU
 void MMU_print(MMU* mmu);
 
-
-
 //fnct su FrameItem
 
 //alloca mem per frame
@@ -162,8 +183,7 @@ int FrameItem_free(FrameItem* item);
 void FrameItem_init(FrameItem* item, int pid, uint32_t frame_num);
 //stampa un frame
 void FrameItem_print(FrameItem* item);
-//stampa lista frame
-void FrameList_print(ListProcessHead* list);
+
 
 
 
@@ -196,3 +216,22 @@ Process* List_find(ListProcessHead* head, Process* item);
 Process* List_insert(ListProcessHead* head, Process* previous, Process* item);
 Process* List_detach(ListProcessHead* head, Process* item);
 void List_print(ListProcessHead* head);
+
+
+
+//fnct per SLAB
+PoolAllocator* PoolAllocator_alloc();
+
+PoolAllocatorResult PoolAllocator_init(PoolAllocator* allocator,
+			int item_size,
+			int num_items,
+			char* memory_block,
+			int memory_size);
+
+void* PoolAllocator_getBlock(PoolAllocator* allocator,bool which);
+
+PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* allocator, FrameItem* block);
+			
+const char* PoolAllocator_strerror(PoolAllocatorResult result);
+
+void PoolAllocator_PrintInfo(PoolAllocator* a);
