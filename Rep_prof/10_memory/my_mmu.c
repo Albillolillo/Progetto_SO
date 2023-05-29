@@ -76,9 +76,8 @@ void Process_print(Process* item){
 
 //fnct PageTable
 
-void PageTable_init(PageTable* pt ,MMU* mmu,int pid,int frame_num){
-  pt->pid=pid;
-  pt->frame_num=frame_num;
+void PageTable_init(PageTable* pt ,MMU* mmu, uint32_t frame_num){
+  pt->pid=mmu->curr_proc->pid;
   pt->phymem_addr.frame_index=frame_num;
   pt->phymem_addr.offset=0;
   for(int i=0;i<PENTRY_NUM;i++){
@@ -89,12 +88,26 @@ void PageTable_init(PageTable* pt ,MMU* mmu,int pid,int frame_num){
 };
 
 void PageTable_print(PageTable* pt ){
-  printf("\npid:%d, frame_num:%d, phymem_addr:%d\n",pt->pid,pt->frame_num,pt->phymem_addr);
-  for(int i=0;i<PENTRY_NUM;i++){
+    printf("\npid:%d, frame_num:%d, phymem_addr:%d\n",pt->pid,pt->phymem_addr.frame_index,pt->phymem_addr);
+  /*for(int i=0;i<PENTRY_NUM;i++){
     printf("PageEntry_num:%d -> %d",i,pt->pe[i]);
     if(i>300)break;
-  }
+  }*/
 };
+
+//sugar fnct
+
+PageTable* PageTable_create(MMU* mmu,void* phy_blocks[]){
+  int frame_num=mmu->phymem_allocator->first_idx;
+  PageTable* pagetable=(PageTable*)PoolAllocator_getBlock(mmu->phymem_allocator,true);
+  phy_blocks[frame_num]=pagetable;
+  printf("\npagetable:%p",pagetable);
+  if(phy_blocks[frame_num]){
+    PageTable_init(pagetable,mmu,frame_num); 
+    PageTable_print((PageTable*)phy_blocks[frame_num]);
+  }
+  return pagetable;
+}
 
 
 //fnct FrameItem
@@ -103,18 +116,30 @@ void FrameEntry_init(FrameItem* item, int pid, uint32_t frame_num){
   for(int i=0;i<FRAME_INFO_SIZE;i++){
     item->info[i]=0;
   }  
-  //item->prev=item->next=0;
+  
   item->pid=pid;
   item->frame_num=frame_num;
 }
 
 void FrameEntry_print(FrameItem* item){
   printf("pid: %d, frame: %d, info: ", item->pid, item->frame_num);
-  for(int i=0;i<sizeof(item->info);i++){
+  /*for(int i=0;i<sizeof(item->info);i++){
     printf("%c",item->info[i]);
-  }
+  }*/
 }
 
+//sugar fnct
+FrameItem* FrameEntry_create(MMU* mmu,void* phy_blocks[]){
+  int frame_num=mmu->phymem_allocator->first_idx;
+  FrameItem* frame=(FrameItem*)PoolAllocator_getBlock(mmu->phymem_allocator,false);
+  phy_blocks[frame_num]=frame;
+  printf("\nframe:%p\n",frame);
+  if(phy_blocks[frame_num]){
+    FrameEntry_init(frame,mmu->curr_proc->pid,frame_num);
+    FrameEntry_print((FrameItem*)phy_blocks[frame_num]);
+  }
+  return frame;
+}
 
 
 
@@ -251,8 +276,9 @@ if(!which){
   //now we retrieve the pointer in the item buffer
   char* block_address=a->buffer+(detached_idx*a->item_size);
   return block_address;
-}else{
+}else if (which && a->size>3){
   // advance the head
+  
   a->first_idx=a->free_list[a->first_idx];
   a->first_idx=a->free_list[a->first_idx];
   --a->size;
@@ -263,38 +289,74 @@ if(!which){
   //now we retrieve the pointer in the item buffer
   char* block_address=a->buffer+(detached_idx*a->item_size);
   return block_address;
+}else {
+  return 0;
 }
 }
 
-PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* a, FrameItem* block_){
-  //pulisco contenuto blocco
-  if (block_){
-    FrameEntry_init(block_,0, block_->frame_num);
-  }
-  //we need to find the index from the address
-  char* block=(char*) block_;
-  int offset=block - a->buffer;
-  //sanity check, we need to be aligned to the block boundaries
-  if (offset%a->item_size)
-    return UnalignedFree;
+PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* a, void* block_,bool which){
+  if(which){
+    //we need to find the index from the address
+    char* block=(char*) block_;
+    int offset=block - a->buffer;
+    //sanity check, we need to be aligned to the block boundaries
+    if (offset%a->item_size)
+      return UnalignedFree;
 
-  int idx=offset/a->item_size;
+    int idx=offset/a->item_size;
 
-  //sanity check, are we inside the buffer?
-  if (idx<0 || idx>=a->size_max)
-    return OutOfRange;
+    //sanity check, are we inside the buffer?
+    if (idx+1<0 || idx+1>=a->size_max)
+          return OutOfRange;
 
-  //is the block detached?
-  if (a->free_list[idx]!=DetachedIdx)
-    return DoubleFree;
+    //is the block detached?
+    if (a->free_list[idx+1]!=DetachedIdx)
+      return DoubleFree;
 
-  // all fine, we insert in the head
+    a->free_list[idx+1]=a->first_idx;
+    a->first_idx=idx+1;
+    ++a->size;
     
-  a->free_list[idx]=a->first_idx;
-  a->first_idx=idx;
-  ++a->size;
+    //sanity check, are we inside the buffer?
+    if (idx<0 || idx>=a->size_max)
+      return OutOfRange;
+
+    //is the block detached?
+    if (a->free_list[idx]!=DetachedIdx)
+      return DoubleFree;    
+
+    // all fine, we insert in the head
+    a->free_list[idx]=a->first_idx;
+    a->first_idx=idx;
+    ++a->size;
+
+    return Success;
   
-  return Success;
+  }else{
+    //we need to find the index from the address
+    char* block=(char*) block_;
+    int offset=block - a->buffer;
+    //sanity check, we need to be aligned to the block boundaries
+    if (offset%a->item_size)
+      return UnalignedFree;
+
+    int idx=offset/a->item_size;
+
+    //sanity check, are we inside the buffer?
+    if (idx<0 || idx>=a->size_max)
+      return OutOfRange;
+
+    //is the block detached?
+    if (a->free_list[idx]!=DetachedIdx)
+      return DoubleFree;
+
+      // all fine, we insert in the head
+    
+    a->free_list[idx]=a->first_idx;
+    a->first_idx=idx;
+    ++a->size;
+    return Success;
+  }
 }
 
 void PoolAllocator_PrintInfo(PoolAllocator* a){

@@ -87,7 +87,6 @@ typedef struct PageEntry {
 //struct PageTable
 typedef struct PageTable {
     int pid;
-    int frame_num;
     PhysicalAddress phymem_addr;
     SwapAddress swapmem_addr;
     PageEntry pe[PENTRY_NUM];
@@ -202,7 +201,7 @@ void Process_print(Process* item);
 //fnct PageTable
 
 //inizzializza PageTable
-void PageTable_init(PageTable* pt,MMU* mmu,int pid,int frame_num);
+void PageTable_init(PageTable* pt,MMU* mmu, uint32_t frame_num);
 //stampa PageTable
 void PageTable_print(PageTable* pt);
 
@@ -230,7 +229,7 @@ PoolAllocatorResult PoolAllocator_init(PoolAllocator* allocator,
 
 void* PoolAllocator_getBlock(PoolAllocator* allocator,bool which);
 
-PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* allocator, FrameItem* block);
+PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* allocator,  void* block_,bool which);
 			
 const char* PoolAllocator_strerror(PoolAllocatorResult result);
 

@@ -5,11 +5,11 @@
 
 PoolAllocator* phy_allocator; //allocatore per mem. fisica
 char buffer_phymem[BUFFER_SIZE_PHYMEM]; //mem. fisica
-FrameItem* phy_blocks[NUM_ITEMS_PHYMEM];//lista blocchi di mem. fisica allocati
+void* phy_blocks[NUM_ITEMS_PHYMEM];//lista blocchi di mem. fisica allocati
 
 PoolAllocator* swap_allocator; //allocatore per mem. swap
 char buffer_swapmem[BUFFER_SIZE_SWAPMEM]; //mem. swap
-FrameItem* swap_blocks[NUM_ITEMS_SWAPMEM]; //lista blocchi di mem. swap allocati
+void* swap_blocks[NUM_ITEMS_SWAPMEM]; //lista blocchi di mem. swap allocati
 
 
 ListProcessHead* processes; //lista processi
@@ -77,7 +77,7 @@ int main(int argc, char** argv) {
     for (int i=0; i<NUM_ITEMS_PHYMEM; ++i){
         FrameEntry_print(phy_blocks[i]);
     }
-  
+ 
     //alloco 1 libero 1
     for (int i=0; i<NUM_ITEMS_PHYMEM; ++i){
         int frame_num=phy_allocator->first_idx;
@@ -91,19 +91,23 @@ int main(int argc, char** argv) {
       PoolAllocatorResult release_result=PoolAllocator_releaseBlock(phy_allocator,phy_blocks[i]);
       printf("%s\n", PoolAllocator_strerror(release_result));  
       FrameEntry_print(phy_blocks[i]);
-    }
-  */
-    //alloco pagetables
+    } 
+    */
+  
+    //alloco pagetable
     for (int i=0; i<NUM_ITEMS_PHYMEM; ++i){
-        int frame_num=phy_allocator->first_idx;
-        PageTable* pagetable=(PageTable*)PoolAllocator_getBlock(phy_allocator,true);
-        if(pagetable){
-            PageTable_init(pagetable,mmu,mmu->curr_proc->pid,frame_num); 
-            PageTable_print(pagetable);
-            }
-        printf("allocation %d, block %p, size%d,frame num:%d, buffer_size%d, pt_size:%d\n", i, pagetable, phy_allocator->size,phy_allocator->first_idx,phy_allocator->buffer_size,sizeof(pagetable->pe)); 
+        if(i%2==0){
+            FrameItem* frame=FrameEntry_create(mmu,phy_blocks);
+            printf("allocation: %d, block: %p, size: %d,next_frame_num: %d, buffer_size: %d, pt_size: %d\n", i, frame, phy_allocator->size,phy_allocator->first_idx,phy_allocator->buffer_size,sizeof(frame->info)); 
+            printf("releasing... idx: %d, block %p, free %d, owner: ... ",i,phy_blocks[frame->frame_num], phy_allocator->size);
+            PoolAllocatorResult release_result=PoolAllocator_releaseBlock(phy_allocator,phy_blocks[frame->frame_num],false);
+            printf("%s\n", PoolAllocator_strerror(release_result));
+        }else{
+            PageTable* pagetable=PageTable_create(mmu,phy_blocks);
+            printf("allocation: %d, block: %p, size: %d,next_frame_num: %d, buffer_size: %d, pt_size: %d\n", i, pagetable, phy_allocator->size,phy_allocator->first_idx,phy_allocator->buffer_size,sizeof(pagetable->pe));
+            printf("releasing... idx: %d, block %p, free %d, owner: ... ",i,phy_blocks[pagetable->phymem_addr.frame_index], phy_allocator->size);
+            PoolAllocatorResult release_result=PoolAllocator_releaseBlock(phy_allocator,phy_blocks[pagetable->phymem_addr.frame_index],true);
+            printf("\n%s", PoolAllocator_strerror(release_result)); 
+        }
     }
-
-
-
 }
