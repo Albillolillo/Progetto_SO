@@ -15,14 +15,34 @@ static const char* PoolAllocator_strerrors[]=
    0
   };
 
-//fnct MMU
+//******fnct MMU******
 
-MMU* MMU_create(PoolAllocator* phymem_allocator,PoolAllocator* swapmem_allocator,Process* curr,ListProcessHead* processes){
+MMU* MMU_create(char* buffer_phymem,char* buffer_swapmem){
+  
+  //inizializzo: lista processi
+  printf("Inizzializzo processi\n");
+  ListProcessHead* processes=(ListProcessHead*)malloc(sizeof(ListProcessHead));
+  List_init(processes);
+
+  //inizializzo: allocatore mem. fisica
+  printf("\nInizzializzo mem.fisica\n");
+  PoolAllocator* phy_allocator=PoolAllocator_alloc();
+  PoolAllocatorResult ret=PoolAllocator_init(phy_allocator,ITEM_SIZE,NUM_ITEMS_PHYMEM,buffer_phymem,BUFFER_SIZE_PHYMEM);
+  printf("%s\n",PoolAllocator_strerror(ret));
+  PoolAllocator_PrintInfo(phy_allocator);
+    
+  //inizializzo: allocatore mem. swap
+  printf("\nInizzializzo mem.swap\n");
+  PoolAllocator* swap_allocator=PoolAllocator_alloc();
+  ret=PoolAllocator_init(swap_allocator,ITEM_SIZE,NUM_ITEMS_SWAPMEM,buffer_swapmem,BUFFER_SIZE_SWAPMEM);
+  printf("%s\n",PoolAllocator_strerror(ret));
+  PoolAllocator_PrintInfo(swap_allocator);
+
   MMU* mmu=(MMU*)malloc(sizeof(MMU));
-  mmu->phymem_allocator=phymem_allocator;
-  mmu->swapmem_allocator=swapmem_allocator;
+  mmu->phymem_allocator=phy_allocator;
+  mmu->swapmem_allocator=swap_allocator;
   mmu->MMU_processes=processes;
-  mmu->curr_proc=curr;
+  mmu->curr_proc=processes->first;
   return mmu;
 };
 //dato indirizzo logico ritorna inirizzo fisico
@@ -33,6 +53,17 @@ void MMU_writeByte(MMU* mmu,LogicalAddress pos, char c){};
 char* MMU_readByte(MMU* mmu,LogicalAddress pos){};
 //lancia exception se indirizzo richiesto non è valido 
 void MMU_exception(MMU* mmu, int pos){};
+//aggiorna processo MMU :setta se NULL e avanza circolarmente altrimenti
+void MMU_process_update(MMU* mmu){
+  if(!mmu->curr_proc && mmu->MMU_processes->first){
+    mmu->curr_proc=mmu->MMU_processes->first;
+  }else if(mmu->curr_proc->prev){
+    mmu->curr_proc=mmu->curr_proc->prev;
+  }else if (!mmu->curr_proc->prev){
+    mmu->curr_proc=mmu->MMU_processes->last;
+  }
+
+};
 //stampa MMU
 void MMU_print(MMU* mmu){
   printf("phy_allocator:%p\nswap_allocator:%p\nLista processi:\n",mmu->phymem_allocator,mmu->swapmem_allocator);
@@ -43,10 +74,7 @@ void MMU_print(MMU* mmu){
 
 
 
-
-
-
-//fnct Processo
+//******fnct Processo******
 
 //alloca mem per processo
 Process* Process_alloc(){
@@ -60,21 +88,32 @@ int Process_free(Process* item){
   return 0;
 };
 //inizializza processo
-void Process_init(Process* item, int pid){
+void Process_init(Process* item, int pid,MMU* mmu){
   item->pid=pid;
   item->next=NULL;
   item->prev=NULL;
   item->on_disk=false;
-};
 
+  List_insert(mmu->MMU_processes,NULL,item);
+  MMU_process_update(mmu);
+
+  PageTable* pagetable=PageTable_create(mmu);
+  item->pt=pagetable;
+  
+  Process_print(item);
+};
 //stampa un processo
 void Process_print(Process* item){
+  if(item){
     printf("processo:%p con pid:%d, successore:%p,predecessore:%p\n",item,item->pid,item->next,item->prev);
+  }else{
+    printf("non ci sono processi attivi\n");
+  }
 };
 
 
 
-//fnct PageTable
+//******fnct PageTable******
 
 void PageTable_init(PageTable* pt ,MMU* mmu, uint32_t frame_num){
   pt->pid=mmu->curr_proc->pid;
@@ -94,23 +133,22 @@ void PageTable_print(PageTable* pt ){
     if(i>300)break;
   }*/
 };
-
 //sugar fnct
-
-PageTable* PageTable_create(MMU* mmu,void* phy_blocks[]){
+PageTable* PageTable_create(MMU* mmu){
   int frame_num=mmu->phymem_allocator->first_idx;
   PageTable* pagetable=(PageTable*)PoolAllocator_getBlock(mmu->phymem_allocator,true);
-  phy_blocks[frame_num]=pagetable;
+  mmu->phy_blocks[frame_num]=pagetable;
   printf("\npagetable:%p",pagetable);
-  if(phy_blocks[frame_num]){
+  if(mmu->phy_blocks[frame_num]){
     PageTable_init(pagetable,mmu,frame_num); 
-    PageTable_print((PageTable*)phy_blocks[frame_num]);
+    PageTable_print((PageTable*)mmu->phy_blocks[frame_num]);
   }
   return pagetable;
 }
 
 
-//fnct FrameItem
+
+//******fnct FrameItem******
 
 void FrameEntry_init(FrameItem* item, int pid, uint32_t frame_num){
   for(int i=0;i<FRAME_INFO_SIZE;i++){
@@ -127,23 +165,22 @@ void FrameEntry_print(FrameItem* item){
     printf("%c",item->info[i]);
   }*/
 }
-
 //sugar fnct
-FrameItem* FrameEntry_create(MMU* mmu,void* phy_blocks[]){
+FrameItem* FrameEntry_create(MMU* mmu){
   int frame_num=mmu->phymem_allocator->first_idx;
   FrameItem* frame=(FrameItem*)PoolAllocator_getBlock(mmu->phymem_allocator,false);
-  phy_blocks[frame_num]=frame;
+  mmu->phy_blocks[frame_num]=frame;
   printf("\nframe:%p\n",frame);
-  if(phy_blocks[frame_num]){
+  if(mmu->phy_blocks[frame_num]){
     FrameEntry_init(frame,mmu->curr_proc->pid,frame_num);
-    FrameEntry_print((FrameItem*)phy_blocks[frame_num]);
+    FrameEntry_print((FrameItem*)mmu->phy_blocks[frame_num]);
   }
   return frame;
 }
 
 
 
-//fnct List
+//******fnct List******
 
 void List_init(ListProcessHead* head) {
   head->first=0;
@@ -217,22 +254,19 @@ int List_free(ListProcessHead* head){
   return 0;
 }
 
-//fnct SLAB
+
+
+//******fnct SLAB******
 
 const char* PoolAllocator_strerror(PoolAllocatorResult result) {
   return PoolAllocator_strerrors[-result];
 }
 
-
 PoolAllocator* PoolAllocator_alloc(){
   return (PoolAllocator*)malloc(sizeof(PoolAllocator));
 }
 
-PoolAllocatorResult PoolAllocator_init(PoolAllocator* a,
-		       int item_size,
-		       int num_items,
-		       char* memory_block,
-		       int memory_size) {
+PoolAllocatorResult PoolAllocator_init(PoolAllocator* a,int item_size,int num_items,char* memory_block,int memory_size) {
 
   // we first check if we have enough memory
   // for the bookkeeping

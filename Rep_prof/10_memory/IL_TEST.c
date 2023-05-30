@@ -3,49 +3,24 @@
 #include "my_mmu.c"
 
 
-PoolAllocator* phy_allocator; //allocatore per mem. fisica
 char buffer_phymem[BUFFER_SIZE_PHYMEM]; //mem. fisica
-void* phy_blocks[NUM_ITEMS_PHYMEM];//lista blocchi di mem. fisica allocati
-
-PoolAllocator* swap_allocator; //allocatore per mem. swap
 char buffer_swapmem[BUFFER_SIZE_SWAPMEM]; //mem. swap
-void* swap_blocks[NUM_ITEMS_SWAPMEM]; //lista blocchi di mem. swap allocati
-
-
-ListProcessHead* processes; //lista processi
 
 
 int main(int argc, char** argv) {
-    //inizializzo: lista processi
-    printf("Inizzializzo processi\n");
-    processes=(ListProcessHead*)malloc(sizeof(ListProcessHead));
-    List_init(processes);
-    for (int i;i<MAX_NUM_PROCS;i++){
-        Process *item=Process_alloc();
-        Process_init(item,i);
-        List_insert(processes,NULL,item);
-    }
-    List_print(processes);
-    Process* current=processes->first;
-
-    //inizializzo: allocatore mem. fisica
-    printf("\nInizzializzo mem.fisica\n");
-    phy_allocator=PoolAllocator_alloc();
-    PoolAllocatorResult ret=PoolAllocator_init(phy_allocator,ITEM_SIZE,NUM_ITEMS_PHYMEM,buffer_phymem,BUFFER_SIZE_PHYMEM);
-    printf("%s\n",PoolAllocator_strerror(ret));
-    PoolAllocator_PrintInfo(phy_allocator);
-    
-    //inizializzo: allocatore mem. swap
-    printf("\nInizzializzo mem.swap\n");
-    swap_allocator=PoolAllocator_alloc();
-    ret=PoolAllocator_init(swap_allocator,ITEM_SIZE,NUM_ITEMS_SWAPMEM,buffer_swapmem,BUFFER_SIZE_SWAPMEM);
-    printf("%s\n",PoolAllocator_strerror(ret));
-    PoolAllocator_PrintInfo(swap_allocator);
-
     
     //inizializzo MMU
     printf("\nInizzializzo MMU\n");
-    MMU* mmu=MMU_create(phy_allocator,swap_allocator,current,processes);
+    MMU* mmu=MMU_create(buffer_phymem,buffer_swapmem);
+    MMU_print(mmu);
+    
+    
+    for (int i;i<MAX_NUM_PROCS;i++){
+        Process *item=Process_alloc();
+        Process_init(item,i,mmu);
+        
+    }
+
     MMU_print(mmu);
 
     
@@ -94,20 +69,16 @@ int main(int argc, char** argv) {
     } 
     */
   
-    //alloco pagetable
-    for (int i=0; i<NUM_ITEMS_PHYMEM; ++i){
-        if(i%2==0){
-            FrameItem* frame=FrameEntry_create(mmu,phy_blocks);
-            printf("allocation: %d, block: %p, size: %d,next_frame_num: %d, buffer_size: %d, pt_size: %d\n", i, frame, phy_allocator->size,phy_allocator->first_idx,phy_allocator->buffer_size,sizeof(frame->info)); 
-            printf("releasing... idx: %d, block %p, free %d, owner: ... ",i,phy_blocks[frame->frame_num], phy_allocator->size);
-            PoolAllocatorResult release_result=PoolAllocator_releaseBlock(phy_allocator,phy_blocks[frame->frame_num],false);
+    //alloco 1 frame e lo rilascio,alloco una pagetable e la rilascio
+    for (int i=0; i<20; ++i){
+        MMU_process_update(mmu);
+ 
+            FrameItem* frame=FrameEntry_create(mmu);
+            printf("allocation: %d, block: %p, size: %d,next_frame_num: %d, buffer_size: %d, pt_size: %d\n", i, frame, mmu->phymem_allocator->size,mmu->phymem_allocator->first_idx,mmu->phymem_allocator->buffer_size,sizeof(frame->info)); 
+            printf("releasing... idx: %d, block %p, free %d, owner: ... ",i,mmu->phy_blocks[frame->frame_num], mmu->phymem_allocator->size);
+            PoolAllocatorResult release_result=PoolAllocator_releaseBlock(mmu->phymem_allocator,mmu->phy_blocks[frame->frame_num],false);
             printf("%s\n", PoolAllocator_strerror(release_result));
-        }else{
-            PageTable* pagetable=PageTable_create(mmu,phy_blocks);
-            printf("allocation: %d, block: %p, size: %d,next_frame_num: %d, buffer_size: %d, pt_size: %d\n", i, pagetable, phy_allocator->size,phy_allocator->first_idx,phy_allocator->buffer_size,sizeof(pagetable->pe));
-            printf("releasing... idx: %d, block %p, free %d, owner: ... ",i,phy_blocks[pagetable->phymem_addr.frame_index], phy_allocator->size);
-            PoolAllocatorResult release_result=PoolAllocator_releaseBlock(phy_allocator,phy_blocks[pagetable->phymem_addr.frame_index],true);
-            printf("\n%s", PoolAllocator_strerror(release_result)); 
-        }
+        
     }
+    return 0;
 }

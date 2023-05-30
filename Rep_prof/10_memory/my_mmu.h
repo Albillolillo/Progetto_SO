@@ -147,6 +147,8 @@ typedef struct PoolAllocator{
 typedef struct MMU {
     PoolAllocator* phymem_allocator;
     PoolAllocator* swapmem_allocator;
+    void* phy_blocks[NUM_ITEMS_PHYMEM];
+    void* swap_blocks[NUM_ITEMS_SWAPMEM];
     ListProcessHead* MMU_processes;
     Process* curr_proc;
 } MMU;
@@ -163,7 +165,7 @@ typedef struct MMU {
 //fnct su MMU
 
 //alloca e inizzializza MMU
-MMU* MMU_create(PoolAllocator* phymem_allocator,PoolAllocator* swapmem_allocator,Process* curr, ListProcessHead* processes);
+MMU* MMU_create(char*buffer_phymem,char*buffer_swapmem);
 //dato indirizzo logico ritorna inirizzo fisico
 PhysicalAddress getPhysicalAddress(MMU* mmu, LogicalAddress logical_address);
 //scrive byte a indirizzo logico specificato
@@ -182,6 +184,10 @@ void FrameEntry_init(FrameItem* item, int pid, uint32_t frame_num);
 //stampa un frame
 void FrameEntry_print(FrameItem* item);
 
+FrameItem* FrameEntry_create(MMU* mmu);
+
+
+
 
 
 
@@ -192,7 +198,7 @@ Process* Process_alloc();
 //libera processo
 int Process_free(Process* item);
 //inizializza processo
-void Process_init(Process* item, int pid);
+void Process_init(Process* item, int pid,MMU* mmu);
 //stampa un processo
 void Process_print(Process* item);
 
@@ -204,6 +210,8 @@ void Process_print(Process* item);
 void PageTable_init(PageTable* pt,MMU* mmu, uint32_t frame_num);
 //stampa PageTable
 void PageTable_print(PageTable* pt);
+
+PageTable* PageTable_create(MMU* mmu);
 
 
 
