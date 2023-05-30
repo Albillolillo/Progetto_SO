@@ -80,8 +80,8 @@ typedef struct FrameItem{
 
 //struct PageEntry
 typedef struct PageEntry {
-  uint32_t frame_number: FRAME_INDEX_BITS;
-  uint32_t flags: PT_FLAGSBITS;
+  uint8_t frame_number: FRAME_INDEX_BITS;
+  uint8_t flags: PT_FLAGSBITS;
 } PageEntry;
 
 //struct PageTable
@@ -142,13 +142,21 @@ typedef struct PoolAllocator{
   int first_idx;       //pointer to the first bucket
 } PoolAllocator;
 
+//flag che indica cosa è stato allocato nella memoria
+typedef enum {
+    Free_=0x1,
+    FrameItem_=0x2,
+    PageTable_=0x3,
+} what_Flag;
 
 //struct memory management unit
 typedef struct MMU {
     PoolAllocator* phymem_allocator;
     PoolAllocator* swapmem_allocator;
     void* phy_blocks[NUM_ITEMS_PHYMEM];
+    what_Flag phy_blocks_what[NUM_ITEMS_PHYMEM];
     void* swap_blocks[NUM_ITEMS_SWAPMEM];
+    what_Flag swap_blocks_what[NUM_ITEMS_SWAPMEM];
     ListProcessHead* MMU_processes;
     Process* curr_proc;
 } MMU;
@@ -207,7 +215,7 @@ void Process_print(Process* item);
 //fnct PageTable
 
 //inizzializza PageTable
-void PageTable_init(PageTable* pt,MMU* mmu, uint32_t frame_num);
+void PageTable_init(PageTable* pt,MMU* mmu, uint8_t frame_num);
 //stampa PageTable
 void PageTable_print(PageTable* pt);
 
@@ -235,10 +243,14 @@ PoolAllocatorResult PoolAllocator_init(PoolAllocator* allocator,
 			char* memory_block,
 			int memory_size);
 
-void* PoolAllocator_getBlock(PoolAllocator* allocator,bool which);
+void* PoolAllocator_getBlock(PoolAllocator* allocator,void* blocks[],bool which);
 
 PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* allocator,  void* block_,bool which);
 			
 const char* PoolAllocator_strerror(PoolAllocatorResult result);
 
 void PoolAllocator_PrintInfo(PoolAllocator* a);
+
+
+
+void What_print(what_Flag what);

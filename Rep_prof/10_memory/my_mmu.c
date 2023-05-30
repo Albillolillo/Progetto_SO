@@ -43,6 +43,15 @@ MMU* MMU_create(char* buffer_phymem,char* buffer_swapmem){
   mmu->swapmem_allocator=swap_allocator;
   mmu->MMU_processes=processes;
   mmu->curr_proc=processes->first;
+  for(int i=0;i<NUM_ITEMS_PHYMEM;i++){
+    mmu->phy_blocks[i]=0;
+    mmu->phy_blocks_what[i]=Free_;
+  }
+  for(int i=0;i<NUM_ITEMS_SWAPMEM;i++){
+    mmu->swap_blocks[i]=0;
+    mmu->swap_blocks_what[i]=Free_;
+  }
+
   return mmu;
 };
 //dato indirizzo logico ritorna inirizzo fisico
@@ -115,30 +124,52 @@ void Process_print(Process* item){
 
 //******fnct PageTable******
 
-void PageTable_init(PageTable* pt ,MMU* mmu, uint32_t frame_num){
+void PageTable_init(PageTable* pt ,MMU* mmu, uint8_t frame_num){
   pt->pid=mmu->curr_proc->pid;
   pt->phymem_addr.frame_index=frame_num;
   pt->phymem_addr.offset=0;
+  printf("unswappable frame:{\n");
   for(int i=0;i<PENTRY_NUM;i++){
-    pt->pe[i].flags=0;
     pt->pe[i].frame_number=i%FRAME_NUM;
-  }
+    
+    if(mmu->phy_blocks_what[pt->pe[i].frame_number]==Free_){
+      pt->pe[i].flags=0;
+    }else{
+      
+      What_print(mmu->phy_blocks_what[pt->pe[i].frame_number]);
+      if(mmu->phy_blocks_what[pt->pe[i].frame_number]==FrameItem_){
+        printf(" del processo:%d\n",((FrameItem*)mmu->phy_blocks[pt->pe[i].frame_number])->pid);
+      }else if(mmu->phy_blocks[pt->pe[i].frame_number]){
+       printf(" del processo:%d\n",((PageTable*)mmu->phy_blocks[pt->pe[i].frame_number])->pid);
+      }else{
+       printf(" del processo:%d\n",((PageTable*)mmu->phy_blocks[pt->pe[i].frame_number-1])->pid);
+      }
+      printf("busy_frame:%d\n",pt->pe[i].frame_number);
+      printf("%p\n",mmu->phy_blocks[pt->pe[i].frame_number]);
+      PTFlags status=Unswappable;
+      pt->pe[i].flags=status;
+    }
+    if(i>255){break;}//toglirere per vedere tutto
+    }
+    printf("}\n");
+}
 
-};
 
 void PageTable_print(PageTable* pt ){
-    printf("\npid:%d, frame_num:%d, phymem_addr:%d\n",pt->pid,pt->phymem_addr.frame_index,pt->phymem_addr);
-  /*for(int i=0;i<PENTRY_NUM;i++){
-    printf("PageEntry_num:%d -> %d",i,pt->pe[i]);
-    if(i>300)break;
-  }*/
+  printf("\npid:%d, frame_num:%d, phymem_addr:%d\n",pt->pid,pt->phymem_addr.frame_index,pt->phymem_addr);
+  for(int i=0;i<PENTRY_NUM;i++){
+    printf("PageEntry_num:%d -> %d-%d ",i,pt->pe[i].flags,pt->pe[i].frame_number);
+    if(i>30)break;//toglirere per vedere tutto
+  }
 };
 //sugar fnct
 PageTable* PageTable_create(MMU* mmu){
   int frame_num=mmu->phymem_allocator->first_idx;
-  PageTable* pagetable=(PageTable*)PoolAllocator_getBlock(mmu->phymem_allocator,true);
-  mmu->phy_blocks[frame_num]=pagetable;
-  printf("\npagetable:%p",pagetable);
+  PageTable* pagetable=(PageTable*)PoolAllocator_getBlock(mmu->phymem_allocator,mmu->phy_blocks,true);
+  //mmu->phy_blocks[frame_num]=pagetable;^^ ora viene fatto dentro ^^
+  mmu->phy_blocks_what[frame_num]=PageTable_;
+  mmu->phy_blocks_what[frame_num+1]=PageTable_;
+  printf("\nPagetable:%p\n",pagetable);
   if(mmu->phy_blocks[frame_num]){
     PageTable_init(pagetable,mmu,frame_num); 
     PageTable_print((PageTable*)mmu->phy_blocks[frame_num]);
@@ -168,8 +199,9 @@ void FrameEntry_print(FrameItem* item){
 //sugar fnct
 FrameItem* FrameEntry_create(MMU* mmu){
   int frame_num=mmu->phymem_allocator->first_idx;
-  FrameItem* frame=(FrameItem*)PoolAllocator_getBlock(mmu->phymem_allocator,false);
-  mmu->phy_blocks[frame_num]=frame;
+  FrameItem* frame=(FrameItem*)PoolAllocator_getBlock(mmu->phymem_allocator,mmu->phy_blocks,false);
+  //mmu->phy_blocks[frame_num]=frame;^^ ora viene fatto dentro ^^
+  mmu->phy_blocks_what[frame_num]=FrameItem_;
   printf("\nframe:%p\n",frame);
   if(mmu->phy_blocks[frame_num]){
     FrameEntry_init(frame,mmu->curr_proc->pid,frame_num);
@@ -292,7 +324,7 @@ PoolAllocatorResult PoolAllocator_init(PoolAllocator* a,int item_size,int num_it
   return Success;
 }
 
-void* PoolAllocator_getBlock(PoolAllocator* a,bool which) {
+void* PoolAllocator_getBlock(PoolAllocator* a,void* blocks[],bool which) {
   if (a->first_idx==-1)
     return 0;
 
@@ -309,6 +341,7 @@ if(!which){
   
   //now we retrieve the pointer in the item buffer
   char* block_address=a->buffer+(detached_idx*a->item_size);
+  blocks[detached_idx]=(FrameItem*)block_address;//!
   return block_address;
 }else if (which && a->size>3){
   // advance the head
@@ -322,6 +355,8 @@ if(!which){
   
   //now we retrieve the pointer in the item buffer
   char* block_address=a->buffer+(detached_idx*a->item_size);
+
+  blocks[detached_idx]=(PageTable*)block_address;//!
   return block_address;
 }else {
   return 0;
@@ -396,4 +431,20 @@ PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* a, void* block_,bo
 void PoolAllocator_PrintInfo(PoolAllocator* a){
   printf("item_size:%d\n num_free_block:%d\n buf_addr:%p\n buffer_size(Bytes):%d\n free_list addr:%p\n max_size:%d\n first_bucket_idx:%d\n ",
           a->item_size,a->size,a->buffer,a->buffer_size,a->free_list,a->size_max,a->first_idx);
+}
+
+
+
+void What_print(what_Flag what){
+  switch (what){
+  case 0x1:
+    printf("Frame libero");
+    break;
+  case 0x2:
+    printf("Frame entry");
+    break;
+  case 0x3:
+    printf("PageTable");
+    break;
+  }
 }
