@@ -22,7 +22,7 @@
 
 
 //MEM_SIZE
-#define PENTRY_NUM (1<<(PT_INDEX_BITS)) //numero entry page table 
+#define PENTRY_NUM ((1<<(PT_INDEX_BITS))- 3*sizeof(int)) //numero entry page table 
 #define FRAME_NUM (1<<FRAME_INDEX_BITS)//numero frame nella memoria fisica
 
 #define PHYMEM_MAX_SIZE (1<<(PHYADDR_BITS)) //dimensine massima memoria fisica (1MB)
@@ -44,20 +44,26 @@
 //numero massimo processi
 #define MAX_NUM_PROCS 10
 
+//MASK
+#define VALID_MASK (1)
+#define UNSWAPPABLE_MASK (1<<1)
+#define READ_MASK (1<<2)
+#define WRITE_MASK (1<<3)
+
 
 
 //************Structs************
 
 //indirizzo logico
 typedef struct LogicalAddress{
-    uint16_t offset: FRAME_OFFSET_BITS;
     uint16_t pt_index: PT_INDEX_BITS;
+    uint16_t offset: FRAME_OFFSET_BITS;
 } LogicalAddress;
 
 //indirizzo fisico
 typedef struct PhysicalAddress{
-    uint16_t offset: FRAME_OFFSET_BITS;
     uint8_t frame_index: FRAME_INDEX_BITS;
+    uint16_t offset: FRAME_OFFSET_BITS;
 } PhysicalAddress;
 
 //indirizzo swapmem
@@ -94,6 +100,7 @@ typedef struct PageTable {
 
 //flags page_table
 typedef enum {
+    Free=0x0,
     Valid=0x1,
     Read=0x2,
     Write=0x4,

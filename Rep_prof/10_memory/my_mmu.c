@@ -55,7 +55,31 @@ MMU* MMU_create(char* buffer_phymem,char* buffer_swapmem){
   return mmu;
 };
 //dato indirizzo logico ritorna inirizzo fisico
-PhysicalAddress getPhysicalAddress(MMU* mmu, LogicalAddress logical_address){};
+PhysicalAddress getPhysicalAddress(MMU* mmu, LogicalAddress logical_address){
+  PhysicalAddress physical_address;
+  physical_address.frame_index=0;
+  physical_address.offset=0;
+
+  int l_a=(logical_address.pt_index<<12)|logical_address.offset;
+  printf("indirizzo logico:%d con pt_index:%d e offset:%d \n",l_a,logical_address.pt_index,logical_address.offset);
+  if(l_a>=LOGMEM_MAX_SIZE || l_a<0){
+    printf("Indirizzo logico non valido\n");
+    physical_address.frame_index=-1;
+    physical_address.offset=-1;
+    return physical_address;
+  }
+  int valid_bit=(mmu->curr_proc->pt->pe[logical_address.pt_index].flags)& VALID_MASK;
+  printf("valid check: %d,%d\n",mmu->curr_proc->pt->pe[logical_address.pt_index].flags,valid_bit);
+  if (valid_bit==Valid){
+    physical_address.frame_index= mmu->curr_proc->pt->pe[logical_address.pt_index].frame_number;
+    physical_address.offset= logical_address.offset;
+  }else{
+    printf("pagina non valida\n");
+    physical_address.frame_index=-1;
+    physical_address.offset=-1;
+  }
+  return physical_address;
+};
 //scrive byte a indirizzo logico specificato
 void MMU_writeByte(MMU* mmu,LogicalAddress pos, char c){};
 //legge byte a indirizzo logico specificato
@@ -71,7 +95,26 @@ void MMU_process_update(MMU* mmu){
   }else if (!mmu->curr_proc->prev){
     mmu->curr_proc=mmu->MMU_processes->last;
   }
-
+//aggiorno PageTablee
+  for(int i=0;i<PENTRY_NUM;i++){
+    PTFlags status;
+    if(mmu->phy_blocks_what[mmu->curr_proc->pt->pe[i].frame_number]==Free_){
+      //printf(" free frame ");
+      status=Free;
+    }else if(mmu->phy_blocks_what[mmu->curr_proc->pt->pe[i].frame_number]==FrameItem_){
+      if(((FrameItem*)mmu->phy_blocks[mmu->curr_proc->pt->pe[i].frame_number])->pid!=mmu->curr_proc->pid){
+        //printf(" frame unswappable ");
+        status=Unswappable;
+      }else{
+        //printf(" frame valid ");
+        status=Valid;
+      }
+    }else if(mmu->phy_blocks_what[mmu->curr_proc->pt->pe[i].frame_number]==PageTable_){
+      //printf(" page unswappable ");
+      status=Unswappable;
+    }
+    mmu->curr_proc->pt->pe[i].flags=status;
+  }
 };
 //stampa MMU
 void MMU_print(MMU* mmu){
@@ -102,13 +145,13 @@ void Process_init(Process* item, int pid,MMU* mmu){
   item->next=NULL;
   item->prev=NULL;
   item->on_disk=false;
-
+  
   List_insert(mmu->MMU_processes,NULL,item);
-  MMU_process_update(mmu);
+  mmu->curr_proc=item;
 
   PageTable* pagetable=PageTable_create(mmu);
   item->pt=pagetable;
-  
+
   Process_print(item);
 };
 //stampa un processo
@@ -128,28 +171,38 @@ void PageTable_init(PageTable* pt ,MMU* mmu, uint8_t frame_num){
   pt->pid=mmu->curr_proc->pid;
   pt->phymem_addr.frame_index=frame_num;
   pt->phymem_addr.offset=0;
-  printf("unswappable frame:{\n");
+
+  //printf("unswappable frame:{\n");
   for(int i=0;i<PENTRY_NUM;i++){
     pt->pe[i].frame_number=i%FRAME_NUM;
-    
+    PTFlags status=Unswappable;
     if(mmu->phy_blocks_what[pt->pe[i].frame_number]==Free_){
       pt->pe[i].flags=0;
+    
     }else{
-      
-      What_print(mmu->phy_blocks_what[pt->pe[i].frame_number]);
+      //What_print(mmu->phy_blocks_what[pt->pe[i].frame_number]);
       if(mmu->phy_blocks_what[pt->pe[i].frame_number]==FrameItem_){
-        printf(" del processo:%d\n",((FrameItem*)mmu->phy_blocks[pt->pe[i].frame_number])->pid);
-      }else if(mmu->phy_blocks[pt->pe[i].frame_number]){
-       printf(" del processo:%d\n",((PageTable*)mmu->phy_blocks[pt->pe[i].frame_number])->pid);
-      }else{
-       printf(" del processo:%d\n",((PageTable*)mmu->phy_blocks[pt->pe[i].frame_number-1])->pid);
+        //printf(" del processo:%d\n",((FrameItem*)mmu->phy_blocks[pt->pe[i].frame_number])->pid);
+        if(((FrameItem*)mmu->phy_blocks[pt->pe[i].frame_number])->pid==pt->pid){
+          //printf("Mio frame\n");
+          pt->pe[i].flags=0;
+        }else{
+          //printf("busy_frame:%d\n",pt->pe[i].frame_number);
+          //printf("%p\n",mmu->phy_blocks[pt->pe[i].frame_number]);
+          pt->pe[i].flags=status;
+        }
+      }else if(mmu->phy_blocks_what[pt->pe[i].frame_number]==PageTable_){
+        if(mmu->phy_blocks[pt->pe[i].frame_number]){
+          //printf(" del processo:%d\n",((PageTable*)mmu->phy_blocks[pt->pe[i].frame_number])->pid);
+        }else{
+          //printf(" del processo:%d\n",((PageTable*)mmu->phy_blocks[pt->pe[i].frame_number-1])->pid);
+        }
+        //printf("busy_frame:%d\n",pt->pe[i].frame_number);
+        //printf("%p\n",mmu->phy_blocks[pt->pe[i].frame_number]);
+        pt->pe[i].flags=status;
       }
-      printf("busy_frame:%d\n",pt->pe[i].frame_number);
-      printf("%p\n",mmu->phy_blocks[pt->pe[i].frame_number]);
-      PTFlags status=Unswappable;
-      pt->pe[i].flags=status;
+      
     }
-    if(i>255){break;}//toglirere per vedere tutto
     }
     printf("}\n");
 }
@@ -159,7 +212,7 @@ void PageTable_print(PageTable* pt ){
   printf("\npid:%d, frame_num:%d, phymem_addr:%d\n",pt->pid,pt->phymem_addr.frame_index,pt->phymem_addr);
   for(int i=0;i<PENTRY_NUM;i++){
     printf("PageEntry_num:%d -> %d-%d ",i,pt->pe[i].flags,pt->pe[i].frame_number);
-    if(i>30)break;//toglirere per vedere tutto
+    //if(i>30)break;//toglirere per vedere tutto
   }
 };
 //sugar fnct
@@ -172,7 +225,7 @@ PageTable* PageTable_create(MMU* mmu){
   printf("\nPagetable:%p\n",pagetable);
   if(mmu->phy_blocks[frame_num]){
     PageTable_init(pagetable,mmu,frame_num); 
-    PageTable_print((PageTable*)mmu->phy_blocks[frame_num]);
+    //PageTable_print((PageTable*)mmu->phy_blocks[frame_num]);
   }
   return pagetable;
 }
@@ -205,6 +258,13 @@ FrameItem* FrameEntry_create(MMU* mmu){
   printf("\nframe:%p\n",frame);
   if(mmu->phy_blocks[frame_num]){
     FrameEntry_init(frame,mmu->curr_proc->pid,frame_num);
+
+    for(int i=0;i<PENTRY_NUM;i++){
+      if(mmu->curr_proc->pt->pe[i].frame_number==frame_num && (mmu->curr_proc->pt->pe[i].flags&VALID_MASK)!=Valid){
+        mmu->curr_proc->pt->pe[i].flags= (mmu->curr_proc->pt->pe[i].flags|VALID_MASK);
+        //printf("le PageEntry del processo corrente che puntano al frame %d sono state settate a valid: %d\n",frame_num,mmu->curr_proc->pt->pe[i].flags);
+      }
+    }
     FrameEntry_print((FrameItem*)mmu->phy_blocks[frame_num]);
   }
   return frame;

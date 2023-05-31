@@ -22,7 +22,28 @@ int main(int argc, char** argv) {
     }
 
     MMU_print(mmu);
+    
 
+
+    FrameEntry_create(mmu);
+    FrameEntry_create(mmu);
+    MMU_process_update(mmu);
+    FrameEntry_create(mmu);
+    FrameEntry_create(mmu);
+    MMU_process_update(mmu);
+    FrameEntry_create(mmu);
+    FrameEntry_create(mmu);
+    MMU_process_update(mmu);
+    FrameEntry_create(mmu);
+    FrameEntry_create(mmu);
+
+
+    LogicalAddress L_A;
+    L_A.offset=0;
+    L_A.pt_index=25;
+    PhysicalAddress P_A=getPhysicalAddress(mmu,L_A);
+    int p_a=(P_A.frame_index<<12)|P_A.offset;
+    printf("indirizzo fisico:%d con frameindex:%d e offset:%d \n\n",p_a,P_A.frame_index,P_A.offset);
     
     //test allocatori
 /*
@@ -67,7 +88,7 @@ int main(int argc, char** argv) {
       printf("%s\n", PoolAllocator_strerror(release_result));  
       FrameEntry_print(phy_blocks[i]);
     } 
-    */
+    
   
     //alloco 1 frame e lo rilascio,alloco una pagetable e la rilascio
     for (int i=0; i<20; ++i){
@@ -79,6 +100,6 @@ int main(int argc, char** argv) {
             PoolAllocatorResult release_result=PoolAllocator_releaseBlock(mmu->phymem_allocator,mmu->phy_blocks[frame->frame_num],false);
             printf("%s\n", PoolAllocator_strerror(release_result));
         
-    }
+    }*/
     return 0;
 }
