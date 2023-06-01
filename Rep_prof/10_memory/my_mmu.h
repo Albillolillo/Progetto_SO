@@ -184,11 +184,11 @@ MMU* MMU_create(char*buffer_phymem,char*buffer_swapmem);
 //dato indirizzo logico ritorna inirizzo fisico
 PhysicalAddress getPhysicalAddress(MMU* mmu, LogicalAddress logical_address);
 //scrive byte a indirizzo logico specificato
-void MMU_writeByte(MMU* mmu,LogicalAddress pos, char c);
+void MMU_writeByte(MMU* mmu,LogicalAddress logical_address, char c);
 //legge byte a indirizzo logico specificato
-char* MMU_readByte(MMU* mmu,LogicalAddress pos);
+char* MMU_readByte(MMU* mmu,LogicalAddress logical_address);
 //lancia exception se indirizzo richiesto non è valido 
-void MMU_exception(MMU* mmu, int pos);
+void MMU_exception(MMU* mmu,LogicalAddress logical_address);
 //stampa MMU
 void MMU_print(MMU* mmu);
 
@@ -200,6 +200,8 @@ void FrameEntry_init(FrameItem* item, int pid, uint32_t frame_num);
 void FrameEntry_print(FrameItem* item);
 
 FrameItem* FrameEntry_create(MMU* mmu);
+
+void Frame_release(MMU*mmu,int block_index);
 
 
 
@@ -228,6 +230,8 @@ void PageTable_print(PageTable* pt);
 
 PageTable* PageTable_create(MMU* mmu);
 
+void PageTable_release(MMU*mmu,int block_index);
+
 
 
 //fnct per list
@@ -250,9 +254,9 @@ PoolAllocatorResult PoolAllocator_init(PoolAllocator* allocator,
 			char* memory_block,
 			int memory_size);
 
-void* PoolAllocator_getBlock(PoolAllocator* allocator,void* blocks[],bool which);
+void* PoolAllocator_getBlock(MMU* mmu,bool which);
 
-PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* allocator,  void* block_,bool which);
+PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* a, void* block_,bool which);
 			
 const char* PoolAllocator_strerror(PoolAllocatorResult result);
 

@@ -27,24 +27,39 @@ int main(int argc, char** argv) {
 
     FrameEntry_create(mmu);
     FrameEntry_create(mmu);
+    Frame_release(mmu,20);
     MMU_process_update(mmu);
     FrameEntry_create(mmu);
-    FrameEntry_create(mmu);
+    Frame_release(mmu,20);
     MMU_process_update(mmu);
-    FrameEntry_create(mmu);
-    FrameEntry_create(mmu);
-    MMU_process_update(mmu);
-    FrameEntry_create(mmu);
-    FrameEntry_create(mmu);
 
-
+    //for (int i=0; i<FRAME_NUM; ++i){
+    FrameEntry_create(mmu);
+    FrameEntry_create(mmu);
+    //}
+    
+    LogicalAddress L_A;
+    for (int i=0; i<100; ++i){
+        
+        L_A.offset=i;
+        L_A.pt_index=20;
+        char c=i%FRAME_NUM;
+        MMU_writeByte(mmu,L_A,c);
+        char* read_byte=MMU_readByte(mmu,L_A);
+        if(read_byte){
+            printf(": %c\n",*read_byte);
+        }
+    }
+    
+//test convertitore LA->PA
+/*
     LogicalAddress L_A;
     L_A.offset=0;
     L_A.pt_index=25;
     PhysicalAddress P_A=getPhysicalAddress(mmu,L_A);
     int p_a=(P_A.frame_index<<12)|P_A.offset;
     printf("indirizzo fisico:%d con frameindex:%d e offset:%d \n\n",p_a,P_A.frame_index,P_A.offset);
-    
+*/
     //test allocatori
 /*
     //alloco e libero tutto 
