@@ -102,9 +102,9 @@ typedef struct PageTable {
 typedef enum {
     Free=0x0,
     Valid=0x1,
-    Read=0x2,
-    Write=0x4,
-    Unswappable=0x8
+    Unswappable=0x2,
+    Read=0x4,
+    Write=0x8    
 } PTFlags;
 
 
@@ -188,7 +188,7 @@ void MMU_writeByte(MMU* mmu,LogicalAddress logical_address, char c);
 //legge byte a indirizzo logico specificato
 char* MMU_readByte(MMU* mmu,LogicalAddress logical_address);
 //lancia exception se indirizzo richiesto non è valido 
-void MMU_exception(MMU* mmu,LogicalAddress logical_address);
+FrameItem* MMU_exception(MMU* mmu,LogicalAddress logical_address);
 //stampa MMU
 void MMU_print(MMU* mmu);
 
@@ -201,7 +201,7 @@ void FrameEntry_print(FrameItem* item);
 
 FrameItem* FrameEntry_create(MMU* mmu);
 
-void Frame_release(MMU*mmu,int block_index);
+void Frame_release(MMU*mmu,int block_index,bool where);
 
 
 
@@ -254,13 +254,15 @@ PoolAllocatorResult PoolAllocator_init(PoolAllocator* allocator,
 			char* memory_block,
 			int memory_size);
 
-void* PoolAllocator_getBlock(MMU* mmu,bool which);
+void* PoolAllocator_getBlock(MMU* mmu,bool which,bool where);
 
 PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* a, void* block_,bool which);
 			
 const char* PoolAllocator_strerror(PoolAllocatorResult result);
 
 void PoolAllocator_PrintInfo(PoolAllocator* a);
+
+uint8_t FindVictim(PageTable*pt);
 
 
 

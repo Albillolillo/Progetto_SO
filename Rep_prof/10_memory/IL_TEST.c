@@ -23,34 +23,42 @@ int main(int argc, char** argv) {
 
     MMU_print(mmu);
     
+    PageTable_print(mmu->curr_proc->pt);
 
-
-    FrameEntry_create(mmu);
-    FrameEntry_create(mmu);
-    Frame_release(mmu,20);
     MMU_process_update(mmu);
-    FrameEntry_create(mmu);
-    Frame_release(mmu,20);
-    MMU_process_update(mmu);
+    PageTable_print(mmu->curr_proc->pt);
 
-    //for (int i=0; i<FRAME_NUM; ++i){
-    FrameEntry_create(mmu);
-    FrameEntry_create(mmu);
-    //}
-    
     LogicalAddress L_A;
-    for (int i=0; i<100; ++i){
+    for (int i=0; i<80; ++i){
         
         L_A.offset=i;
-        L_A.pt_index=20;
+        L_A.pt_index=i;
+        char c=i%FRAME_NUM;
+        MMU_writeByte(mmu,L_A,c);
+        
+        char* read_byte=MMU_readByte(mmu,L_A);
+        if(read_byte){
+            printf(": %c\n",*read_byte);
+        }
+    }
+    /*
+    MMU_process_update(mmu);
+    
+    for (int i=0; i<258; ++i){
+        
+        L_A.offset=i;
+        L_A.pt_index=i;
         char c=i%FRAME_NUM;
         MMU_writeByte(mmu,L_A,c);
         char* read_byte=MMU_readByte(mmu,L_A);
         if(read_byte){
             printf(": %c\n",*read_byte);
         }
-    }
+    }*/
     
+    uint8_t index=FindVictim(mmu->curr_proc->pt);
+    printf("\nvictim index: %d\n",index);    
+    PageTable_print(mmu->curr_proc->pt);
 //test convertitore LA->PA
 /*
     LogicalAddress L_A;
