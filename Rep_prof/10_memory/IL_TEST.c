@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     MMU_print(mmu);
     
     
-    for (int i;i<MAX_NUM_PROCS;i++){
+    for (int i=1;i<MAX_NUM_PROCS;i++){
         Process *item=Process_alloc();
         Process_init(item,i,mmu);
         
@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
     LogicalAddress L_A;
     for (int i=0; i<80; ++i){
         
-        L_A.offset=i;
+        L_A.offset=(i*2)%PENTRY_NUM;
         L_A.pt_index=i;
         char c=i%FRAME_NUM;
         MMU_writeByte(mmu,L_A,c);
@@ -41,24 +41,29 @@ int main(int argc, char** argv) {
             printf(": %c\n",*read_byte);
         }
     }
-    /*
+    
     MMU_process_update(mmu);
     
-    for (int i=0; i<258; ++i){
+    for (int i=0; i<170; ++i){
         
         L_A.offset=i;
-        L_A.pt_index=i;
+        L_A.pt_index=(i)%PENTRY_NUM;
         char c=i%FRAME_NUM;
         MMU_writeByte(mmu,L_A,c);
-        char* read_byte=MMU_readByte(mmu,L_A);
-        if(read_byte){
-            printf(": %c\n",*read_byte);
+        if(i%2==0){
+            char* read_byte=MMU_readByte(mmu,L_A);
+            if(read_byte){
+                printf(": %c\n",*read_byte);
+            }
+        }else{
+            L_A.offset=i+1;
+            MMU_writeByte(mmu,L_A,c);
         }
-    }*/
+    }
+     PageTable_print(mmu->curr_proc->pt);
     
-    uint8_t index=FindVictim(mmu->curr_proc->pt);
-    printf("\nvictim index: %d\n",index);    
-    PageTable_print(mmu->curr_proc->pt);
+ 
+
 //test convertitore LA->PA
 /*
     LogicalAddress L_A;

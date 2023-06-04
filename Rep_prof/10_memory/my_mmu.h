@@ -49,6 +49,7 @@
 #define UNSWAPPABLE_MASK (1<<1)
 #define READ_MASK (1<<2)
 #define WRITE_MASK (1<<3)
+#define SWAPPED_MASK (1<<4)
 
 
 
@@ -104,7 +105,8 @@ typedef enum {
     Valid=0x1,
     Unswappable=0x2,
     Read=0x4,
-    Write=0x8    
+    Write=0x8,
+    Swapped=0x10  
 } PTFlags;
 
 
@@ -156,6 +158,12 @@ typedef enum {
     PageTable_=0x3,
 } what_Flag;
 
+//struttura per elementi della swap_blocks_what
+typedef struct what_struct {
+    what_Flag what;
+    uint16_t from_where;
+} what_struct;
+
 //struct memory management unit
 typedef struct MMU {
     PoolAllocator* phymem_allocator;
@@ -163,10 +171,17 @@ typedef struct MMU {
     void* phy_blocks[NUM_ITEMS_PHYMEM];
     what_Flag phy_blocks_what[NUM_ITEMS_PHYMEM];
     void* swap_blocks[NUM_ITEMS_SWAPMEM];
-    what_Flag swap_blocks_what[NUM_ITEMS_SWAPMEM];
+    what_struct swap_blocks_what[NUM_ITEMS_SWAPMEM];
     ListProcessHead* MMU_processes;
     Process* curr_proc;
 } MMU;
+
+
+// tipo di ritorno del FindVictim
+typedef struct aux_struct {
+    uint8_t index;
+    uint16_t pt_index;
+} aux_struct;
 
 
 
@@ -262,7 +277,11 @@ const char* PoolAllocator_strerror(PoolAllocatorResult result);
 
 void PoolAllocator_PrintInfo(PoolAllocator* a);
 
-uint8_t FindVictim(PageTable*pt);
+
+
+aux_struct FindVictim(PageTable* pt);
+
+void SwapOut_Frame(MMU* mmu,aux_struct indexes);
 
 
 
