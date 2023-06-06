@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     MMU_print(mmu);
     
     
-    for (int i=1;i<MAX_NUM_PROCS-10;i++){
+    for (int i=1;i<MAX_NUM_PROCS;i++){
         Process *item=Process_alloc();
         Process_init(item,i,mmu);
         
