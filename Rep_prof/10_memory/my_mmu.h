@@ -38,11 +38,11 @@
 #define NUM_ITEMS_SWAPMEM (1<<(SWAP_INDEX_BITS))
 
 // buffer should contain also bookkeeping information
-#define BUFFER_SIZE_PHYMEM NUM_ITEMS_PHYMEM*(ITEM_SIZE+sizeof(int))
-#define BUFFER_SIZE_SWAPMEM NUM_ITEMS_SWAPMEM*(ITEM_SIZE+sizeof(int))
+#define BUFFER_SIZE_PHYMEM (NUM_ITEMS_PHYMEM*(ITEM_SIZE+sizeof(int)))+ITEM_SIZE
+#define BUFFER_SIZE_SWAPMEM (NUM_ITEMS_SWAPMEM*(ITEM_SIZE+sizeof(int)))+ITEM_SIZE
 
 //numero massimo processi
-#define MAX_NUM_PROCS 10
+#define MAX_NUM_PROCS 100
 
 //MASK
 #define VALID_MASK (1)
@@ -50,6 +50,9 @@
 #define READ_MASK (1<<2)
 #define WRITE_MASK (1<<3)
 #define SWAPPED_MASK (1<<4)
+
+//Altro
+#define NOT_A_PROCESS -1;
 
 
 
@@ -117,7 +120,8 @@ typedef struct Process{
     struct Process* prev;
     int pid;
     PageTable* pt;
-    bool on_disk; //false phy mem ,true swap mem
+    uint16_t last_changed_index;
+    //bool on_disk; //false phy mem ,true swap mem, NON IMPLEMENTATO
 } Process;
 
 
@@ -231,6 +235,8 @@ Process* Process_alloc();
 int Process_free(Process* item);
 //inizializza processo
 void Process_init(Process* item, int pid,MMU* mmu);
+
+void Process_release(Process* item,MMU* mmu);
 //stampa un processo
 void Process_print(Process* item);
 
@@ -253,6 +259,7 @@ void PageTable_release(MMU*mmu,int block_index);
 //
 void List_init(ListProcessHead* head);
 Process* List_find(ListProcessHead* head, Process* item);
+Process* List_find_pid(ListProcessHead* head,int pid);
 Process* List_insert(ListProcessHead* head, Process* previous, Process* item);
 Process* List_detach(ListProcessHead* head, Process* item);
 void List_print(ListProcessHead* head);
@@ -279,9 +286,11 @@ void PoolAllocator_PrintInfo(PoolAllocator* a);
 
 
 
-aux_struct FindVictim(PageTable* pt);
+aux_struct FindVictim(Process*curr);
 
-void SwapOut_Frame(MMU* mmu,aux_struct indexes);
+uint16_t FindAddress(MMU*mmu,uint16_t logicaladdress);
+
+int SwapOut_Frame(MMU* mmu,aux_struct indexes);
 
 
 
