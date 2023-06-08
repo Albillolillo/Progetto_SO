@@ -18,27 +18,29 @@ static const char* PoolAllocator_strerrors[]=
 
 //******fnct MMU******
 
+//Creo MMU
 MMU* MMU_create(char* buffer_phymem,char* buffer_swapmem){
   
-  //inizializzo: lista processi
+  //alloco lista processi
   printf("Inizzializzo processi\n");
   ListProcessHead* processes=(ListProcessHead*)malloc(sizeof(ListProcessHead));
   List_init(processes);
 
-  //inizializzo: allocatore mem. fisica
+  //alloco allocatore mem. fisica
   printf("\nInizzializzo mem.fisica\n");
   PoolAllocator* phy_allocator=PoolAllocator_alloc();
   PoolAllocatorResult ret=PoolAllocator_init(phy_allocator,ITEM_SIZE,NUM_ITEMS_PHYMEM,buffer_phymem,BUFFER_SIZE_PHYMEM);
   printf("%s\n",PoolAllocator_strerror(ret));
   PoolAllocator_PrintInfo(phy_allocator);
     
-  //inizializzo: allocatore mem. swap
+  //alloco allocatore mem. swap
   printf("\nInizzializzo mem.swap\n");
   PoolAllocator* swap_allocator=PoolAllocator_alloc();
   ret=PoolAllocator_init(swap_allocator,ITEM_SIZE,NUM_ITEMS_SWAPMEM,buffer_swapmem,BUFFER_SIZE_SWAPMEM);
   printf("%s\n",PoolAllocator_strerror(ret));
   PoolAllocator_PrintInfo(swap_allocator);
 
+  //alloco MMU e inizializzo tutti i campi
   MMU* mmu=(MMU*)malloc(sizeof(MMU));
   mmu->phymem_allocator=phy_allocator;
   mmu->swapmem_allocator=swap_allocator;
@@ -56,12 +58,16 @@ MMU* MMU_create(char* buffer_phymem,char* buffer_swapmem){
 
   return mmu;
 };
-//dato indirizzo logico ritorna inirizzo fisico
+
+//Dato indirizzo logico ritorna inirizzo fisico (funzione utilizzata solo in fase di progettazione)
 PhysicalAddress getPhysicalAddress(MMU* mmu, LogicalAddress logical_address){
+
+  //inizializzo indirizzo di ritorno
   PhysicalAddress physical_address;
   physical_address.frame_index=0;
   physical_address.offset=0;
 
+  //calcolo indirizzo logico e verifico che sia nei limiti
   int l_a=(logical_address.pt_index<<12)|logical_address.offset;
   printf("\nindirizzo logico:%d con pt_index:%d e offset:%d \n",l_a,logical_address.pt_index,logical_address.offset);
   if(l_a>=LOGMEM_MAX_SIZE || l_a<0 || logical_address.pt_index>PENTRY_NUM){
@@ -70,6 +76,8 @@ PhysicalAddress getPhysicalAddress(MMU* mmu, LogicalAddress logical_address){
     physical_address.offset=-1;
     return physical_address;
   }
+
+  //controllo se la page entry richiesta è valida: si,formo indirizzo fisico valido; no,formo indirizzo fisico non valido. Ritorno indirizzo formato 
   int valid_bit=(mmu->curr_proc->pt->pe[logical_address.pt_index].flags)& VALID_MASK;
   printf("valid check: %d,%d\n",mmu->curr_proc->pt->pe[logical_address.pt_index].flags,valid_bit);
   if (valid_bit==Valid){
@@ -82,41 +90,49 @@ PhysicalAddress getPhysicalAddress(MMU* mmu, LogicalAddress logical_address){
   }
   return physical_address;
 };
+
 //scrive byte a indirizzo logico specificato
 void MMU_writeByte(MMU* mmu,LogicalAddress logical_address, char c){
+  //inizializzo indirizzo fisico
   PhysicalAddress physical_address;
   physical_address.frame_index=0;
   physical_address.offset=0;
 
+  //se indirizzo logico non è valido return
   int l_a=(logical_address.pt_index<<12)|logical_address.offset;
   printf("\nindirizzo logico:%d con pt_index:%d e offset:%d \n",l_a,logical_address.pt_index,logical_address.offset);
   if(l_a>=LOGMEM_MAX_SIZE || l_a<0 || logical_address.pt_index>=PENTRY_NUM || logical_address.offset>=FRAME_INFO_SIZE){
     printf("Indirizzo logico non valido\n");
     return;
   }
+
+  //indirizzo è valido e non unswappable (è un Frame), formo indirizzo fisico, scrivo e aggiorno i flags della PageTable
   printf("valid check: %d\n",mmu->curr_proc->pt->pe[logical_address.pt_index].flags);
   if ((((mmu->curr_proc->pt->pe[logical_address.pt_index].flags)& VALID_MASK)==Valid)&& !(((mmu->curr_proc->pt->pe[logical_address.pt_index].flags)& UNSWAPPABLE_MASK)==Unswappable)){
     physical_address.frame_index= mmu->curr_proc->pt->pe[logical_address.pt_index].frame_number;
     physical_address.offset= logical_address.offset;
-
     ((FrameItem*)mmu->phy_blocks[physical_address.frame_index])->info[physical_address.offset]=c;
     mmu->curr_proc->pt->pe[logical_address.pt_index].flags|=Write;
     mmu->curr_proc->last_changed_index=logical_address.pt_index;
     printf("scritto carattere: %c ,nel frame %d all' offset %d , ora i flags sono:%d\n",c,physical_address.frame_index,physical_address.offset,mmu->curr_proc->pt->pe[logical_address.pt_index].flags);
+  
+  //indirizzo è valido e unswappable (è una PageTable)
   }else if (((mmu->curr_proc->pt->pe[logical_address.pt_index].flags)& VALID_MASK)==Valid){
     printf("non puoi scrivere sulla tua PageTable\n");
-    //************************************
-  }else if(((mmu->curr_proc->pt->pe[logical_address.pt_index].flags)& SWAPPED_MASK)==Swapped){
 
+  //indirizzo è swapped, per scrivere su questo frame devo riportarlo in memoria fisica 
+  }else if(((mmu->curr_proc->pt->pe[logical_address.pt_index].flags)& SWAPPED_MASK)==Swapped){
+    //trovo una vittima per fare spazio al frame 
     printf("L'indirizzo richiesto sulla swapmem, cerco frame da sostituire\n");
     aux_struct index=FindVictim(mmu->curr_proc);
     if (index.index==255 && index.pt_index==4096){
-      printf("Il processo corrente non ha frame swappable\n");  //non penso possa succedere
+      printf("Il processo corrente non ha frame swappable\n");
     }else{
+      //vittima trovata provo lo swapout del frame
       printf("\nvictim index: %d\n",index.index);    
-      //PageTable_print(mmu->curr_proc->pt);
       int done=SwapOut_Frame(mmu,index);
       if(done=1){
+        //ripristino il frame in phymem ,scrivo e libero il frame nella swapmem
         int swapin_index=FindAddress(mmu,logical_address.pt_index);
         printf("\nIl contenuto della pEntry %d si trovava nel frame %d della swapmem\n",logical_address.pt_index,swapin_index);  
         if(mmu->curr_proc->pid==((FrameItem*)mmu->swap_blocks[swapin_index])->pid){
@@ -131,24 +147,32 @@ void MMU_writeByte(MMU* mmu,LogicalAddress logical_address, char c){
         }
       }
     }
-//********************************************************
+
+  //indirizzo non è valido, page fault, chiamo MMU_exception 
   }else{
     printf("pagina non valida\n");
     FrameItem* new_frame=MMU_exception(mmu,logical_address);
+
+    //MMU_exception è andata a buon fine, scrivo su frame restituito
     if(new_frame){
       MMU_writeByte(mmu,logical_address,c);
+
+    //MMU_exception è fallita, scrittura negata
     }else{
       printf("Scrittura NEGATA\n");
     }
-    
   };
 }
+
 //legge byte a indirizzo logico specificato
 char* MMU_readByte(MMU* mmu,LogicalAddress logical_address){
+  //inizializzo indirizzo fisico e puntatore da ritornare
   PhysicalAddress physical_address;
   physical_address.frame_index=0;
   physical_address.offset=0;
   char* read_byte=0;
+
+  //se indirizzo logico non è valido return
   int l_a=(logical_address.pt_index<<12)|logical_address.offset;
   printf("\nindirizzo logico:%d con pt_index:%d e offset:%d \n",l_a,logical_address.pt_index,logical_address.offset);
   if(l_a>=LOGMEM_MAX_SIZE || l_a<0 || logical_address.pt_index>=PENTRY_NUM || logical_address.offset>=FRAME_INFO_SIZE){
@@ -156,6 +180,7 @@ char* MMU_readByte(MMU* mmu,LogicalAddress logical_address){
     return read_byte;
   }
 
+  //indirizzo è valido e non unswappable (è un Frame), formo indirizzo fisico, leggo e aggiorno i flags della PageTable
   printf("valid check: %d\n",mmu->curr_proc->pt->pe[logical_address.pt_index].flags);
   if ((((mmu->curr_proc->pt->pe[logical_address.pt_index].flags)& VALID_MASK)==Valid)&& !(((mmu->curr_proc->pt->pe[logical_address.pt_index].flags)& UNSWAPPABLE_MASK)==Unswappable)){
     physical_address.frame_index= mmu->curr_proc->pt->pe[logical_address.pt_index].frame_number;
@@ -164,18 +189,24 @@ char* MMU_readByte(MMU* mmu,LogicalAddress logical_address){
     mmu->curr_proc->pt->pe[logical_address.pt_index].flags|=Read;
     mmu->curr_proc->last_changed_index=logical_address.pt_index;
     printf("Byte letto ora i flags sono:%d",mmu->curr_proc->pt->pe[logical_address.pt_index].flags);
+
+  //indirizzo è valido e unswappable (è una PageTable)
   }else if(((mmu->curr_proc->pt->pe[logical_address.pt_index].flags)& VALID_MASK)==Valid){
     printf("non posso leggere una PageTable");
+
+  //indirizzo è swapped, per leggere da questo frame devo riportarlo in memoria fisica 
   }else if(((mmu->curr_proc->pt->pe[logical_address.pt_index].flags)& SWAPPED_MASK)==Swapped){
+    //trovo una vittima per fare spazio al frame
     printf("L'indirizzo richiesto sulla swapmem, cerco frame da sostituire\n");
     aux_struct index=FindVictim(mmu->curr_proc);
     if (index.index==255 && index.pt_index==4096){
-      printf("Il processo corrente non ha frame swappable\n");  //non penso possa succedere
+      printf("Il processo corrente non ha frame swappable\n");
     }else{
+      //vittima trovata provo lo swapout del frame
       printf("\nvictim index: %d\n",index.index);    
-      //PageTable_print(mmu->curr_proc->pt);
       int done=SwapOut_Frame(mmu,index);
       if(done=1){
+        //ripristino il frame in phymem ,scrivo e libero il frame nella swapmem
         int swapin_index=FindAddress(mmu,logical_address.pt_index);
         printf("\nIl contenuto della pEntry %d si trovava nel frame %d della swapmem\n",logical_address.pt_index,swapin_index);  
         if(mmu->curr_proc->pid==((FrameItem*)mmu->swap_blocks[swapin_index])->pid){
@@ -190,31 +221,39 @@ char* MMU_readByte(MMU* mmu,LogicalAddress logical_address){
         }
       }
     }
+  
+  //indirizzo è non valido
   }else {
     printf("pagina non valida\n");
   }
+
   return read_byte;
 };
 
-//lancia exception se indirizzo richiesto non è valido 
+//lancia exception se indirizzo richiesto in scrittura non è valido, page fault
 FrameItem* MMU_exception(MMU* mmu,LogicalAddress logical_address){
   printf("sto gestendo l'eccezione\n");
   FrameItem* requested_frame=FrameEntry_create(mmu);
+
+  //c'è ancora spazio nella phymem, aggiorno page entry
   if(requested_frame){
     mmu->curr_proc->pt->pe[logical_address.pt_index].flags=Valid;
     mmu->curr_proc->pt->pe[logical_address.pt_index].frame_number=requested_frame->frame_num;
     
+  //phymem è piena, è necessario fare swapout di un frame 
   }else{
+    //cerco vittima 
     printf("Phymem piena, swap necessario\n");
     aux_struct index=FindVictim(mmu->curr_proc);
+    //non trovata
     if (index.index==255 && index.pt_index==4096){
       printf("Il processo corrente non ha frame swappable\n");
-      return requested_frame;
+    //trovata
     }else{
-    printf("\nvictim index: %d\n",index.index);    
-    //PageTable_print(mmu->curr_proc->pt);
-    int done=SwapOut_Frame(mmu,index);
+      printf("\nvictim index: %d\n",index.index);    
+      int done=SwapOut_Frame(mmu,index);
       if(done=1){
+        //swapout riuscito richiedo creazione frame
         requested_frame=FrameEntry_create(mmu);
         mmu->curr_proc->pt->pe[logical_address.pt_index].flags=Valid;
         mmu->curr_proc->pt->pe[logical_address.pt_index].frame_number=requested_frame->frame_num;
@@ -223,7 +262,6 @@ FrameItem* MMU_exception(MMU* mmu,LogicalAddress logical_address){
   }
   return requested_frame;
 };
-
 
 //aggiorna processo MMU :setta se NULL e avanza circolarmente altrimenti
 void MMU_process_update(MMU* mmu){
@@ -234,29 +272,8 @@ void MMU_process_update(MMU* mmu){
   }else if (!mmu->curr_proc->prev){
     mmu->curr_proc=mmu->MMU_processes->last;
   }
-  /****non necessario al processo non interessa cosa c'è nella sua pt ma sologli indirizzi validi o non 
-  
-//aggiorno PageTablee
-  for(int i=0;i<PENTRY_NUM;i++){
-    PTFlags status;
-    if(mmu->phy_blocks_what[mmu->curr_proc->pt->pe[i].frame_number]==Free_){
-      //printf(" free frame ");
-      status=Free;
-    }else if(mmu->phy_blocks_what[mmu->curr_proc->pt->pe[i].frame_number]==FrameItem_){
-      if(((FrameItem*)mmu->phy_blocks[mmu->curr_proc->pt->pe[i].frame_number])->pid!=mmu->curr_proc->pid){
-        //printf(" frame unswappable ");
-        status=Unswappable;
-      }else{
-        //printf(" frame valid ");
-        status=Valid;
-      }
-    }else if(mmu->phy_blocks_what[mmu->curr_proc->pt->pe[i].frame_number]==PageTable_){
-      //printf(" page unswappable ");
-      status=Unswappable;
-    }
-    mmu->curr_proc->pt->pe[i].flags=status;
-  }*/
 };
+
 //stampa MMU
 void MMU_print(MMU* mmu){
   printf("phy_allocator:%p\nswap_allocator:%p\nLista processi:\n",mmu->phymem_allocator,mmu->swapmem_allocator);
@@ -273,18 +290,23 @@ void MMU_print(MMU* mmu){
 Process* Process_alloc(){
   return (Process*)malloc(sizeof(Process));
 };
-//libera processo *****non funziona*****
+
+//dealloca processo 
 int Process_free(Process* item){
   item->next=NULL;
   item->prev=NULL;
   free(item);
   return 0;
 };
+
 //inizializza processo
 void Process_init(Process* item, int pid,MMU* mmu){
+  //cerco pid e processo per vedere se esiste già
   Process* find_proc=List_find(mmu->MMU_processes,item);
   Process* find_pid=List_find_pid(mmu->MMU_processes,pid);
   printf("trovato processo:%p, in pid inserito appartiene già al processo:%p\n",find_proc,find_pid);
+
+  //processo non esiste
   if(find_proc==0 && find_pid==0){
     item->pid=pid;
     item->next=NULL;
@@ -296,18 +318,24 @@ void Process_init(Process* item, int pid,MMU* mmu){
 
     PageTable* pagetable=PageTable_create(mmu);
     item->pt=pagetable;
-
     Process_print(item);
+
+  //processo esiste
   }else{
     printf("processo con pid %d esiste già\n",pid);
   }
-
 };
 
+//libera processo rilasciando Frames e PageTable
 void Process_release(Process* item,MMU* mmu){
+  //cerco il processo nella lista
   Process* victim=List_find(mmu->MMU_processes,item);
   printf("\nsto liberando processo:%d\n",victim->pid);
+
+  //stacco processo dalla lista
   List_detach(mmu->MMU_processes,item);
+
+  //rilascio i frame che possiede in phymem
   for(int i=0;i<FRAME_NUM-1;i++){
     if (mmu->phy_blocks_what[i]==FrameItem_){
       if(((FrameItem*)mmu->phy_blocks[i])->pid==victim->pid){
@@ -325,6 +353,8 @@ void Process_release(Process* item,MMU* mmu){
       i++;
     }
   }
+
+  //rilascio i frame che possiede in swapmem
   for(int i=0;i<PENTRY_NUM;i++){
     if (mmu->swap_blocks_what[i].what==FrameItem_){
       if(((FrameItem*)mmu->swap_blocks[i])->pid==victim->pid){
@@ -342,11 +372,15 @@ void Process_release(Process* item,MMU* mmu){
       i++;
     }    
   }
+
+  //se sto liberando il processo corrente aggiorno il processo corrente
   if (victim==mmu->curr_proc){
     MMU_process_update(mmu);
   }
+
   Process_free(item);
 }
+
 //stampa un processo
 void Process_print(Process* item){
   if(item){
@@ -360,11 +394,15 @@ void Process_print(Process* item){
 
 //******fnct PageTable******
 
+
+//inizializza PageTable
 void PageTable_init(PageTable* pt ,MMU* mmu, uint8_t frame_num){
+  //inizializzo campi
   pt->pid=mmu->curr_proc->pid;
   pt->phymem_addr.frame_index=frame_num;
   pt->phymem_addr.offset=0;
 
+  //inizializza flags (varie print interne disattivate)
   printf("frame_flags:{\n");
   for(int i=0;i<PENTRY_NUM;i++){
     pt->pe[i].frame_number=i%(FRAME_NUM-1);
@@ -409,29 +447,29 @@ void PageTable_init(PageTable* pt ,MMU* mmu, uint8_t frame_num){
   printf("}\n");
 }
 
-
+//stampa PageTable
 void PageTable_print(PageTable* pt ){
   printf("\npid:%d, frame_location:%d, phymem_addr:%d\n",pt->pid,pt->phymem_addr.frame_index,pt->phymem_addr);
   for(int i=0;i<PENTRY_NUM;i++){
     printf("PageEntry_num:%d -> %d-%d ",i,pt->pe[i].flags,pt->pe[i].frame_number);
-    //if(i>30)break;//toglirere per vedere tutto
   }
 };
-//sugar fnct
+
+//richiede blocco per la PageTable (al phymem_allocator), la inizializza e aggiorna phy_blocks_what[]
 PageTable* PageTable_create(MMU* mmu){
-    int frame_num=mmu->phymem_allocator->first_idx;
-    PageTable* pagetable=(PageTable*)PoolAllocator_getBlock(mmu,true,false);
-    //mmu->phy_blocks[frame_num]=pagetable;^^ ora viene fatto dentro ^^
-    mmu->phy_blocks_what[frame_num]=PageTable_;
-    mmu->phy_blocks_what[frame_num+1]=PageTable_;
-    printf("\nPagetable:%p\n",pagetable);
-    if(mmu->phy_blocks[frame_num]){
-      PageTable_init(pagetable,mmu,frame_num); 
-      //PageTable_print((PageTable*)mmu->phy_blocks[frame_num]);
+  int frame_num=mmu->phymem_allocator->first_idx;
+  PageTable* pagetable=(PageTable*)PoolAllocator_getBlock(mmu,true,false);
+  mmu->phy_blocks_what[frame_num]=PageTable_;
+  mmu->phy_blocks_what[frame_num+1]=PageTable_;
+  printf("\nPagetable:%p\n",pagetable);
+  if(mmu->phy_blocks[frame_num]){
+    PageTable_init(pagetable,mmu,frame_num); 
+    //PageTable_print((PageTable*)mmu->phy_blocks[frame_num]);
   }
   return pagetable;
 }
 
+//rilascia PageTable dalla phymem
 void PageTable_release(MMU*mmu,int block_index){
   PoolAllocatorResult release_result=PoolAllocator_releaseBlock(mmu->phymem_allocator,mmu->phy_blocks[block_index],true);
   mmu->phy_blocks_what[block_index]=Free_;
@@ -443,15 +481,16 @@ void PageTable_release(MMU*mmu,int block_index){
 
 //******fnct FrameItem******
 
+//inizializza Frame
 void FrameEntry_init(FrameItem* item, int pid, uint32_t frame_num){
   for(int i=0;i<FRAME_INFO_SIZE;i++){
     item->info[i]=0;
-  }  
-  
+  }
   item->pid=pid;
   item->frame_num=frame_num;
 }
 
+//stampa Frame
 void FrameEntry_print(FrameItem* item){
   if(item){
     printf("pid: %d, frame: %d, info: ", item->pid, item->frame_num);
@@ -461,11 +500,11 @@ void FrameEntry_print(FrameItem* item){
     printf("\n");
   }
 }
-//sugar fnct
+
+//richiede blocco per la Frame (al phymem_allocator), lo inizializza e aggiorna phy_blocks_what[]
 FrameItem* FrameEntry_create(MMU* mmu){
   int frame_num=mmu->phymem_allocator->first_idx;
   FrameItem* frame=(FrameItem*)PoolAllocator_getBlock(mmu,false,false);
-  //mmu->phy_blocks[frame_num]=frame;^^ ora viene fatto dentro ^^
   mmu->phy_blocks_what[frame_num]=FrameItem_;
   printf("frame:%p\n",frame);
   if(frame){
@@ -475,10 +514,12 @@ FrameItem* FrameEntry_create(MMU* mmu){
   return frame;
 }
 
+//rilascia Frame dalla phymem se where==false o dalla swapmem se where==true
 void Frame_release(MMU*mmu,int block_index,bool where){
   if(!where){
     PoolAllocatorResult release_result=PoolAllocator_releaseBlock(mmu->phymem_allocator,mmu->phy_blocks[block_index],false);
     mmu->phy_blocks_what[block_index]=Free_;
+
     int frame_num=((FrameItem*)mmu->phy_blocks[block_index])->frame_num;
     FrameEntry_init(mmu->phy_blocks[block_index],0,frame_num);
     printf("%s\n", PoolAllocator_strerror(release_result));
@@ -497,12 +538,15 @@ void Frame_release(MMU*mmu,int block_index,bool where){
 
 //******fnct List******
 
+
+//inizializza testa della lista
 void List_init(ListProcessHead* head) {
   head->first=0;
   head->last=0;
   head->size=0;
 }
 
+//trova processo nella lista dato processo
 Process* List_find(ListProcessHead* head, Process* item) {
   // linear scanning of list
   Process* aux=head->first;
@@ -514,6 +558,7 @@ Process* List_find(ListProcessHead* head, Process* item) {
   return 0;
 }
 
+//trova processo nella lista dato pid processo
 Process* List_find_pid(ListProcessHead* head,int pid){
   Process* aux=head->first;
   while(aux){
@@ -524,6 +569,7 @@ Process* List_find_pid(ListProcessHead* head,int pid){
   return 0;
 }
 
+//inserisce processo in testa alla lista
 Process* List_insert(ListProcessHead* head, Process* prev, Process* item) {
   if (item->next || item->prev)
     return 0;
@@ -545,6 +591,7 @@ Process* List_insert(ListProcessHead* head, Process* prev, Process* item) {
   return item;
 }
 
+//stacca processo dalla lista
 Process* List_detach(ListProcessHead* head, Process* item) {
   Process* prev=item->prev;
   Process* next=item->next;
@@ -563,6 +610,7 @@ Process* List_detach(ListProcessHead* head, Process* item) {
   return item;
 }
 
+//stampa lista processi
 void List_print(ListProcessHead* head){
   Process* aux=head->first;
   while(aux){
@@ -571,6 +619,7 @@ void List_print(ListProcessHead* head){
   }
 }
 
+//libera lista processi
 int List_free(ListProcessHead* head){
   Process* aux=head->first;
   while(aux){
@@ -583,14 +632,18 @@ int List_free(ListProcessHead* head){
 
 //******fnct SLAB******
 
+
+//funzione ausiliaria
 const char* PoolAllocator_strerror(PoolAllocatorResult result) {
   return PoolAllocator_strerrors[-result];
 }
 
+//alloca memoria per l'allocatore
 PoolAllocator* PoolAllocator_alloc(){
   return (PoolAllocator*)malloc(sizeof(PoolAllocator));
 }
 
+//inizializza allocatore
 PoolAllocatorResult PoolAllocator_init(PoolAllocator* a,int item_size,int num_items,char* memory_block,int memory_size) {
 
   // we first check if we have enough memory
@@ -617,6 +670,8 @@ PoolAllocatorResult PoolAllocator_init(PoolAllocator* a,int item_size,int num_it
   return Success;
 }
 
+//restituisce blocco di memoria, which==false: Frame ,      where==false: phymem
+//                               which==true: PageTable,    where==true: swapmem
 void* PoolAllocator_getBlock(MMU*mmu,bool which,bool where) {
   if(!where){
     if (mmu->phymem_allocator->first_idx==-1 || mmu->phymem_allocator->first_idx==mmu->phymem_allocator->size_max-1)
@@ -695,6 +750,8 @@ void* PoolAllocator_getBlock(MMU*mmu,bool which,bool where) {
   }
 }
 
+//rilascia un blocco  which==false: Frame
+//                    which==true: PageTable
 PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* a, void* block_,bool which){
   if(which){
     //we need to find the index from the address
@@ -760,13 +817,17 @@ PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* a, void* block_,bo
   }
 }
 
+//stampa PoolAllocator
 void PoolAllocator_PrintInfo(PoolAllocator* a){
   printf("item_size:%d\n num_free_block:%d\n buf_addr:%p\n buffer_size(Bytes):%d\n free_list addr:%p\n max_size:%d\n first_bucket_idx:%d\n ",
           a->item_size,a->size,a->buffer,a->buffer_size,a->free_list,a->size_max,a->first_idx);
 }
 
+
+
 //******fnct swap******
 
+//trova Frame che è stato usato per ultimo con l'algoritmo di second chance partendo a ciclare dall'elemento sdopo l'ultimo cambiato
 aux_struct FindVictim(Process*curr){
   aux_struct ret;
   ret.index=255;
@@ -774,18 +835,26 @@ aux_struct FindVictim(Process*curr){
 
   int count=0;
   while(count<3){
-    int i=curr->last_changed_index;
+    int i=(curr->last_changed_index+1)%PENTRY_NUM;
     int countin=0;
     while (countin<PENTRY_NUM){
+      //se trovo un frame entro 
       if ((curr->pt->pe[i].flags&VALID_MASK)==Valid && !((curr->pt->pe[i].flags&UNSWAPPABLE_MASK)==Unswappable)){
+
+        //frame è sia scritto che letto -> letto
         if (((curr->pt->pe[i].flags&WRITE_MASK)==Write) && ((curr->pt->pe[i].flags&READ_MASK)==Read)){
           curr->pt->pe[i].flags&=READ_MASK;
           curr->pt->pe[i].flags|=VALID_MASK;
+
+        //frame è solo scritto -> prendibile al prossimo giro 
         }else if(((curr->pt->pe[i].flags&WRITE_MASK)==Write) && !((curr->pt->pe[i].flags&READ_MASK)==Read)){
           curr->pt->pe[i].flags&=VALID_MASK;
+
+        //frame è solo letto -> prendibile al prossimo giro 
         }else if(!((curr->pt->pe[i].flags&WRITE_MASK)==Write) && ((curr->pt->pe[i].flags&READ_MASK)==Read)){
           curr->pt->pe[i].flags&=VALID_MASK;
-          
+
+        //frame è solo valido, ho trovato la mia vittima
         }else{
           printf("il frame corrente ha flags: %d\n", curr->pt->pe[i].flags);
           printf("la PageEntry %d sta per essere swappata\n",i);
@@ -800,16 +869,17 @@ aux_struct FindVictim(Process*curr){
     }
     count++;
   }
+  //dopo tre giri se non ho trovato vittime vuol dire che il processo non ha Frame validi
   printf("Nessun frame è valido\n");
   return ret;
 }
 
+//caccia un processo dalla phy mem e lo sposta nella swapmem
 int SwapOut_Frame(MMU* mmu,aux_struct indexes){
   int ret=0;
   printf("Rilasciato Frame: %d\n",indexes.index);
   What_print(mmu->phy_blocks_what[indexes.index]);
   FrameEntry_print((FrameItem*)mmu->phy_blocks[indexes.index]);
-
 
   int frame_num=mmu->swapmem_allocator->first_idx;
   FrameItem* victim_frame=(FrameItem*)mmu->phy_blocks[indexes.index];
@@ -826,10 +896,9 @@ int SwapOut_Frame(MMU* mmu,aux_struct indexes){
     printf("LA SWAPMEM E' PIENA\n");
     ret=0;
   }
-  
 };
 
-
+//trova in swapmem l'indirizzo logico richiesto
 uint16_t FindAddress(MMU*mmu,uint16_t logicaladdress){
   uint16_t ret=0;
   for(int i=0;i<PENTRY_NUM;i++){

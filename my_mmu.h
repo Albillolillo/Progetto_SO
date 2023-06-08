@@ -64,19 +64,19 @@ typedef struct LogicalAddress{
     uint16_t offset: FRAME_OFFSET_BITS;
 } LogicalAddress;
 
+
 //indirizzo fisico
 typedef struct PhysicalAddress{
     uint8_t frame_index: FRAME_INDEX_BITS;
     uint16_t offset: FRAME_OFFSET_BITS;
 } PhysicalAddress;
 
-//indirizzo swapmem
+
+//indirizzo swapmem  ****NON UTILIZZATA****
 typedef struct SwapAddress{
     uint16_t offset: FRAME_OFFSET_BITS;
     uint16_t swap_index: SWAP_INDEX_BITS;
 } SwapAddress;
-
-
 
 
 //struct FrameItem
@@ -87,12 +87,12 @@ typedef struct FrameItem{
 }FrameItem;
 
 
-
 //struct PageEntry
 typedef struct PageEntry {
   uint8_t frame_number: FRAME_INDEX_BITS;
   uint8_t flags: PT_FLAGSBITS;
 } PageEntry;
+
 
 //struct PageTable
 typedef struct PageTable {
@@ -101,6 +101,7 @@ typedef struct PageTable {
     SwapAddress swapmem_addr;
     PageEntry pe[PENTRY_NUM];
 } PageTable;
+
 
 //flags page_table
 typedef enum {
@@ -111,7 +112,6 @@ typedef enum {
     Write=0x8,
     Swapped=0x10  
 } PTFlags;
-
 
 
 //struct processo
@@ -125,13 +125,13 @@ typedef struct Process{
 } Process;
 
 
-
 //struct list
 typedef struct ListProcessHead {
   Process* first;
   Process* last;
   int size;
 } ListProcessHead;
+
 
 //structs per SLAB
 typedef enum {
@@ -141,6 +141,7 @@ typedef enum {
   OutOfRange=-3,
   DoubleFree=-4
 } PoolAllocatorResult;
+
 
 typedef struct PoolAllocator{
   
@@ -155,6 +156,7 @@ typedef struct PoolAllocator{
   int first_idx;       //pointer to the first bucket
 } PoolAllocator;
 
+
 //flag che indica cosa è stato allocato nella memoria
 typedef enum {
     Free_=0x1,
@@ -162,11 +164,13 @@ typedef enum {
     PageTable_=0x3,
 } what_Flag;
 
+
 //struttura per elementi della swap_blocks_what
 typedef struct what_struct {
     what_Flag what;
     uint16_t from_where;
 } what_struct;
+
 
 //struct memory management unit
 typedef struct MMU {
@@ -189,74 +193,44 @@ typedef struct aux_struct {
 
 
 
-
-
-
-
-
 //************Functions************
 
 //fnct su MMU
-
-//alloca e inizzializza MMU
 MMU* MMU_create(char*buffer_phymem,char*buffer_swapmem);
-//dato indirizzo logico ritorna inirizzo fisico
 PhysicalAddress getPhysicalAddress(MMU* mmu, LogicalAddress logical_address);
-//scrive byte a indirizzo logico specificato
 void MMU_writeByte(MMU* mmu,LogicalAddress logical_address, char c);
-//legge byte a indirizzo logico specificato
 char* MMU_readByte(MMU* mmu,LogicalAddress logical_address);
-//lancia exception se indirizzo richiesto non è valido 
 FrameItem* MMU_exception(MMU* mmu,LogicalAddress logical_address);
-//stampa MMU
 void MMU_print(MMU* mmu);
 
+
+
 //fnct su FrameItem
-
-//inizializza frame
 void FrameEntry_init(FrameItem* item, int pid, uint32_t frame_num);
-//stampa un frame
 void FrameEntry_print(FrameItem* item);
-
 FrameItem* FrameEntry_create(MMU* mmu);
-
 void Frame_release(MMU*mmu,int block_index,bool where);
 
 
 
-
-
-
 //fnct Processo
-
-//alloca mem per processo
 Process* Process_alloc();
-//libera processo
 int Process_free(Process* item);
-//inizializza processo
 void Process_init(Process* item, int pid,MMU* mmu);
-
 void Process_release(Process* item,MMU* mmu);
-//stampa un processo
 void Process_print(Process* item);
 
 
 
 //fnct PageTable
-
-//inizzializza PageTable
 void PageTable_init(PageTable* pt,MMU* mmu, uint8_t frame_num);
-//stampa PageTable
 void PageTable_print(PageTable* pt);
-
 PageTable* PageTable_create(MMU* mmu);
-
 void PageTable_release(MMU*mmu,int block_index);
 
 
 
 //fnct per list
-//
 void List_init(ListProcessHead* head);
 Process* List_find(ListProcessHead* head, Process* item);
 Process* List_find_pid(ListProcessHead* head,int pid);
@@ -269,29 +243,20 @@ int List_free(ListProcessHead* head);
 
 //fnct per SLAB
 PoolAllocator* PoolAllocator_alloc();
-
-PoolAllocatorResult PoolAllocator_init(PoolAllocator* allocator,
-			int item_size,
-			int num_items,
-			char* memory_block,
-			int memory_size);
-
+PoolAllocatorResult PoolAllocator_init(PoolAllocator* allocator,int item_size,int num_items,char* memory_block,int memory_size);
 void* PoolAllocator_getBlock(MMU* mmu,bool which,bool where);
-
-PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* a, void* block_,bool which);
-			
+PoolAllocatorResult PoolAllocator_releaseBlock(PoolAllocator* a, void* block_,bool which);			
 const char* PoolAllocator_strerror(PoolAllocatorResult result);
-
 void PoolAllocator_PrintInfo(PoolAllocator* a);
 
 
 
+//fnct per Swap
 aux_struct FindVictim(Process*curr);
-
 uint16_t FindAddress(MMU*mmu,uint16_t logicaladdress);
-
 int SwapOut_Frame(MMU* mmu,aux_struct indexes);
 
 
 
+//sugar
 void What_print(what_Flag what);

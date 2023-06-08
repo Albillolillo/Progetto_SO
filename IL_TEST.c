@@ -15,19 +15,20 @@ int main(int argc, char** argv) {
     MMU_print(mmu);
     
     
-    for (int i=1;i<MAX_NUM_PROCS;i++){
+    //TEST 1 
+    //Creo 10 processi, stampo MMU e la lista dei processi
+    for (int i=1;i<11;i++){
         Process *item=Process_alloc();
         Process_init(item,i,mmu);
         
     }
 
     MMU_print(mmu);
-    
-    //PageTable_print(mmu->curr_proc->pt);
-
     MMU_process_update(mmu);
-    //PageTable_print(mmu->curr_proc->pt);
+    List_print(mmu->MMU_processes);
 
+
+/*
     LogicalAddress L_A;
     for (int i=0; i<201; ++i){
         
@@ -45,7 +46,7 @@ int main(int argc, char** argv) {
             MMU_process_update(mmu);
         }
     }
-     /*
+     
     for (int i=0; i<60; ++i){
         
         L_A.offset=i;
@@ -71,7 +72,7 @@ int main(int argc, char** argv) {
         
     }
      PageTable_print(mmu->curr_proc->pt);
-*/
+
      for (int i=0; i<300; ++i){
         
         L_A.offset=i;
@@ -91,7 +92,7 @@ int main(int argc, char** argv) {
     Process_init(item,6,mmu);
     Process_init(item,3,mmu);
     List_print(mmu->MMU_processes);
-
+*/
      /*
     int count=0;
      for(int i=0;i<4096;i++){
