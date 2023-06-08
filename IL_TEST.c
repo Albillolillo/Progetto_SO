@@ -15,8 +15,9 @@ int main(int argc, char** argv) {
     MMU_print(mmu);
     
     
-    //TEST 1 
+    //************ TEST 1 ************
     //Creo 10 processi, stampo MMU e la lista dei processi
+/*
     for (int i=1;i<11;i++){
         Process *item=Process_alloc();
         Process_init(item,i,mmu);
@@ -26,106 +27,182 @@ int main(int argc, char** argv) {
     MMU_print(mmu);
     MMU_process_update(mmu);
     List_print(mmu->MMU_processes);
+*/
 
 
+    //************ TEST 2 ************
+    //Creo 10 processi, richiedo 20 scritture e letture ad indirizzi diversi per ogni processo 
 /*
-    LogicalAddress L_A;
+    for (int i=1;i<11;i++){
+        Process *item=Process_alloc();
+        Process_init(item,i,mmu);
+    }
+
+     LogicalAddress L_A;
+
     for (int i=0; i<201; ++i){
         
-        L_A.offset=(i*2)%PENTRY_NUM;
-        L_A.pt_index=i;
+        L_A=FormLogAddr(i,i);
         char c=i%FRAME_NUM;
+
         MMU_writeByte(mmu,L_A,c);
         
         char* read_byte=MMU_readByte(mmu,L_A);
-    
         if(read_byte){
             printf(": %c\n",*read_byte);
         }
+
         if(i%20==0){
             MMU_process_update(mmu);
         }
     }
-     
-    for (int i=0; i<60; ++i){
-        
-        L_A.offset=i;
-        L_A.pt_index=(i)%PENTRY_NUM;
-        char c=i%FRAME_NUM;
-        MMU_writeByte(mmu,L_A,c);
-        if(i%2==0){
-            char* read_byte=MMU_readByte(mmu,L_A);
-        }
+*/
+
+    //************ TEST 3 ************
+    //Creo 10 processi, richiedo 20 scritture e letture ad indirizzi diversi per ogni processo, libero un processo e richiedo altre 20 scritture al processo corrente
+/*   
+    for (int i=1;i<11;i++){
+        Process *item=Process_alloc();
+        Process_init(item,i,mmu);
     }
 
-    PageTable_print(mmu->curr_proc->pt);
+     LogicalAddress L_A;
 
-    for (int i=0; i<300; ++i){
+    for (int i=0; i<201; ++i){
         
-        L_A.offset=i;
-        L_A.pt_index=(i)%PENTRY_NUM;
+        L_A=FormLogAddr(i%FRAME_INFO_SIZE,i%PENTRY_NUM);
         char c=i%FRAME_NUM;
+
         MMU_writeByte(mmu,L_A,c);
-        if(i%2==0){
-            char* read_byte=MMU_readByte(mmu,L_A);
+        
+        char* read_byte=MMU_readByte(mmu,L_A);
+        if(read_byte){
+            printf(": %c\n",*read_byte);
         }
-        
-    }
-     PageTable_print(mmu->curr_proc->pt);
 
-     for (int i=0; i<300; ++i){
-        
-        L_A.offset=i;
-        L_A.pt_index=(i)%PENTRY_NUM;
-        char c=i%FRAME_NUM;
-        MMU_writeByte(mmu,L_A,c);
-        if(i%2==0){
-            char* read_byte=MMU_readByte(mmu,L_A);
+        if(i%20==0){
+            MMU_process_update(mmu);
         }
     }
-
-    PageTable_print(mmu->curr_proc->pt);
 
     Process_release(mmu->MMU_processes->last->prev->prev,mmu);
-    List_print(mmu->MMU_processes);
-    Process *item=Process_alloc();
-    Process_init(item,6,mmu);
-    Process_init(item,3,mmu);
-    List_print(mmu->MMU_processes);
-*/
-     /*
-    int count=0;
-     for(int i=0;i<4096;i++){
-        
-        if(mmu->swap_blocks[i]){
-           printf("%d",((FrameItem*)mmu->swap_blocks[i])->pid); 
-           count++;
-        }
-        
-    }
-    printf("\n%d",_count); 
-    
-    MMU_process_update(mmu);
 
-    for (int i=0; i<4120; ++i){
+    for (int i=0; i<70; ++i){
         
-        L_A.offset=i%FRAME_INFO_SIZE;
-        L_A.pt_index=i%FRAME_NUM;
+        L_A=FormLogAddr(i%FRAME_INFO_SIZE,i%PENTRY_NUM);
         char c=i%FRAME_NUM;
+
         MMU_writeByte(mmu,L_A,c);
-        if(i%2==0){
-            char* read_byte=MMU_readByte(mmu,L_A);
-            if(read_byte){
-                printf(": %c\n",*read_byte);
-            }
-        }else{
-            L_A.offset=i+1;
-            MMU_writeByte(mmu,L_A,c);
-        }
+
     }
+
     PageTable_print(mmu->curr_proc->pt);
 
-    */
+    //NB! il processo non ha bisogno di richiedere swap poichè la memoria fisica ha 255 posti all'inizio 20 sono occupati da PageTables e 200 da frame dei processi 
+    //liberandone uno si liberano altri 22 posti ->198 posti occupati, poichè infine il processo corrente è il primo processo quindi 20 delle sue scritture 
+    //sulla prime 70 entry saranno non avranno page fault ne segue che le restanti 50 scritture richiederanno frame (57 disponibili) 
+*/
+
+    //************ TEST 4 ************
+    //Creo 3 processi, richiedo 70 scritture e letture ad indirizzi diversi per ogni processo, richiedo altre 200 scritture al processo corrente
+/*
+    for (int i=1;i<4;i++){
+        Process *item=Process_alloc();
+        Process_init(item,i,mmu);
+    }
+
+     LogicalAddress L_A;
+
+    for (int i=0; i<211; ++i){
+        
+        L_A=FormLogAddr(i%FRAME_INFO_SIZE,i%PENTRY_NUM);
+        char c=i%FRAME_NUM;
+
+        MMU_writeByte(mmu,L_A,c);
+        
+        char* read_byte=MMU_readByte(mmu,L_A);
+        if(read_byte){
+            printf(": %c\n",*read_byte);
+        }
+
+        if(i%70==0){
+            MMU_process_update(mmu);
+        }
+    }
+
+    for (int i=0; i<200; ++i){
+        
+        L_A=FormLogAddr(i%FRAME_INFO_SIZE,i%PENTRY_NUM);
+        char c=i%FRAME_NUM;
+
+        MMU_writeByte(mmu,L_A,c);
+
+    }
+
+    PageTable_print(mmu->curr_proc->pt);
+*/
+
+/*
+    //************ TEST 5 ************
+    //Creo 1 processo,richiedo altre 4500 scritture (cicliche) al processo corrente
+    
+    for (int i=1;i<2;i++){
+        Process *item=Process_alloc();
+        Process_init(item,i,mmu);
+    }
+
+     LogicalAddress L_A;
+
+    
+    for (int i=0; i<4500; ++i){
+        
+        L_A=FormLogAddr(i%FRAME_INFO_SIZE,i);
+        char c=i%FRAME_NUM;
+
+        MMU_writeByte(mmu,L_A,c);
+
+    }
+*/
+
+
+    //************ TEST 6 ************
+    //Creo 50 processi, richiedo 4 scritture e letture ad indirizzi diversi per ogni processo, richiedo altre 100 scritture al processo corrente
+/*
+    for (int i=1;i<50;i++){
+        Process *item=Process_alloc();
+        Process_init(item,i,mmu);
+    }
+
+     LogicalAddress L_A;
+
+    for (int i=0; i<201; ++i){
+        
+        L_A=FormLogAddr(i,i);
+        char c=i%FRAME_NUM;
+
+        MMU_writeByte(mmu,L_A,c);
+        
+        if(i%2==0){
+           char* read_byte=MMU_readByte(mmu,L_A);
+            if(read_byte){
+            printf(": %c\n",*read_byte);
+            }
+        }
+        
+        if(i%4==0){
+            MMU_process_update(mmu);
+        }
+    }
+    for (int i=0; i<100; ++i){
+        L_A=FormLogAddr((i+1200)%FRAME_INFO_SIZE,(i+1200)%PENTRY_NUM);
+        char c=i%FRAME_NUM;
+
+         MMU_writeByte(mmu,L_A,c);
+    }
+
+    PageTable_print(mmu->curr_proc->pt);
+
+*/
 
     return 0;
 }

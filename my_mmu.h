@@ -98,7 +98,6 @@ typedef struct PageEntry {
 typedef struct PageTable {
     int pid;
     PhysicalAddress phymem_addr;
-    SwapAddress swapmem_addr;
     PageEntry pe[PENTRY_NUM];
 } PageTable;
 
@@ -121,7 +120,6 @@ typedef struct Process{
     int pid;
     PageTable* pt;
     uint16_t last_changed_index;
-    //bool on_disk; //false phy mem ,true swap mem, NON IMPLEMENTATO
 } Process;
 
 
@@ -260,3 +258,5 @@ int SwapOut_Frame(MMU* mmu,aux_struct indexes);
 
 //sugar
 void What_print(what_Flag what);
+
+LogicalAddress FormLogAddr(uint16_t offset,uint16_t pt_index);

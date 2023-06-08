@@ -426,7 +426,7 @@ void PageTable_init(PageTable* pt ,MMU* mmu, uint8_t frame_num){
         }
       }else if(mmu->phy_blocks_what[pt->pe[i].frame_number]==PageTable_){
         if(mmu->phy_blocks[pt->pe[i].frame_number]){
-          pt->pe[i+1].frame_number=(i+1)%FRAME_NUM;
+          pt->pe[i+1].frame_number=(i+1)% (FRAME_NUM-1);
           if(((PageTable*)mmu->phy_blocks[pt->pe[i].frame_number])->pid==pt->pid){
             pt->pe[i].flags=status;
             pt->pe[i].flags|=VALID_MASK;
@@ -914,13 +914,22 @@ uint16_t FindAddress(MMU*mmu,uint16_t logicaladdress){
 void What_print(what_Flag what){
   switch (what){
   case 0x1:
-    printf("Frame libero");
+    printf("Frame libero\n");
     break;
   case 0x2:
-    printf("Frame entry");
+    printf("Frame entry\n");
     break;
   case 0x3:
-    printf("PageTable");
+    printf("PageTable\n");
     break;
+  default:
+    printf("Non identificato\n");
   }
+}
+
+LogicalAddress FormLogAddr(uint16_t offset,uint16_t pt_index){
+  LogicalAddress l_a;
+  l_a.offset=offset;
+  l_a.pt_index=pt_index;
+  return l_a;
 }
