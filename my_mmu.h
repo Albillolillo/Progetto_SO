@@ -199,6 +199,7 @@ PhysicalAddress getPhysicalAddress(MMU* mmu, LogicalAddress logical_address);
 void MMU_writeByte(MMU* mmu,LogicalAddress logical_address, char c);
 char* MMU_readByte(MMU* mmu,LogicalAddress logical_address);
 FrameItem* MMU_exception(MMU* mmu,LogicalAddress logical_address);
+void MMU_process_update(MMU* mmu);
 void MMU_print(MMU* mmu);
 
 
